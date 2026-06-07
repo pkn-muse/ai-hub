@@ -7,6 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="AI Hub">
 <title>AI Investment Hub</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' https://cdnjs.cloudflare.com https://api.anthropic.com https://paper-api.alpaca.markets https://api.alpaca.markets; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline';">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
@@ -27,7 +28,6 @@ textarea{resize:vertical}
 <div id="root"></div>
 <script type="text/babel">
 const {useState,useEffect,useCallback,useRef}=React;
-const e=React.createElement;
 
 const C={bg:"#06080f",s1:"#0c0f1a",s2:"#0f1421",b:"#161d2e",b2:"#1e2840",
   tx:"#dce4f0",mu:"#4a5870",di:"#8090a8",
@@ -221,6 +221,7 @@ stocks:[
 
 // ═══════════ STORAGE ═══════════════════════════════════
 const WK="ai_hub_v4",NK="ai_hub_nf_v2",AK="ai_hub_ak_v1";
+// Alpaca paper trading key storage — see AlpacaTrader component
 const getAK=()=>localStorage.getItem(AK)||"";
 const setAK=(k)=>localStorage.setItem(AK,k.trim());
 const lWL=()=>{try{return JSON.parse(localStorage.getItem(WK))||{};}catch{return{};}};
@@ -250,8 +251,8 @@ async function fetchPrices(tickers){
   await Promise.all(batches.map(async batch=>{
     try{
       const prompt=`Current price and day % change for: ${batch.join(", ")}. JSON only: {"TICKER":{"price":0.00,"pct":0.00}}`;
-      const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":getAK(),"anthropic-dangerous-direct-browser-access":"true","anthropic-version":"2023-06-01","anthropic-beta":"web-search-2025-03-05"},
-        body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:500,
+      const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",signal:AbortSignal.timeout(30000),headers:{"Content-Type":"application/json","x-api-key":getAK(),"anthropic-dangerous-direct-browser-access":"true","anthropic-version":"2023-06-01","anthropic-beta":"web-search-2025-03-05"},
+        body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:300,
           tools:[{type:"web_search_20250305",name:"web_search"}],
           system:"You are a financial data assistant. Return only valid JSON. No markdown fences, no explanation.",
           messages:[{role:"user",content:prompt}]})});
@@ -278,8 +279,8 @@ async function fetchPrices(tickers){
 async function yahooFull(ticker){
   try{
     const prompt=`Search web for ${ticker} stock current data. Return JSON only: {"name":"<name>","price":<num>,"change":<decimal>,"pe":<num>,"fwdPe":<num>,"peg":<num>,"ps":<num>,"revGrowth":<decimal>,"grossMargin":<decimal>,"operatingMargin":<decimal>,"debtToEquity":<num>,"targetPrice":<num>,"beta":<num>,"week52High":<num>,"week52Low":<num>,"recommendation":"buy|hold|sell"}. Use null for unknown fields.`;
-    const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":getAK(),"anthropic-dangerous-direct-browser-access":"true","anthropic-version":"2023-06-01","anthropic-beta":"web-search-2025-03-05"},
-      body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:600,
+    const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",signal:AbortSignal.timeout(30000),headers:{"Content-Type":"application/json","x-api-key":getAK(),"anthropic-dangerous-direct-browser-access":"true","anthropic-version":"2023-06-01","anthropic-beta":"web-search-2025-03-05"},
+      body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:400,
         tools:[{type:"web_search_20250305",name:"web_search"}],
         system:"You are a financial data assistant. Use web search to find real, current stock data. Return only valid JSON. No markdown, no explanation.",
         messages:[{role:"user",content:prompt}]})});
@@ -292,18 +293,30 @@ async function yahooFull(ticker){
   }catch{return null;}
 }
 async function claude(prompt,sys){
+  if(!navigator.onLine)throw new Error("No internet connection. Check your network and try again.");
   const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",
+    signal:AbortSignal.timeout(30000),
     headers:{"Content-Type":"application/json","x-api-key":getAK(),"anthropic-dangerous-direct-browser-access":"true","anthropic-version":"2023-06-01"},
-    body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,
+    body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:600,
       system:sys||"You are a sharp equity analyst specializing in AI stocks. Be concise and data-driven. No markdown, no asterisks.",
       messages:[{role:"user",content:prompt}]})});
   const d=await r.json();
+  if(d.error){
+    const msg=d.error.message||"API error";
+    if(msg.includes("rate limit")||d.error.type==="rate_limit_error")
+      throw new Error("Rate limit hit. Wait 60 seconds then try again.");
+    if(d.error.type==="authentication_error")
+      throw new Error("Invalid API key. Tap ⚙️ to update.");
+    throw new Error(msg);
+  }
   return d.content?.filter(b=>b.type==="text").map(b=>b.text).join("")||"";
 }
 
 async function claudeSearch(prompt,sys){
+  if(!navigator.onLine)throw new Error("No internet connection. Check your network and try again.");
   // web_search_20250305 requires the anthropic-beta header
   const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",
+    signal:AbortSignal.timeout(45000),
     headers:{
       "Content-Type":"application/json",
       "x-api-key":getAK(),
@@ -311,12 +324,22 @@ async function claudeSearch(prompt,sys){
       "anthropic-version":"2023-06-01",
       "anthropic-beta":"web-search-2025-03-05"
     },
-    body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1500,
+    body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,
       tools:[{type:"web_search_20250305",name:"web_search"}],
       system:sys||"You are a financial analyst with web search access. Always search for current data, then return ONLY valid JSON. No markdown, no explanation outside the JSON.",
       messages:[{role:"user",content:prompt}]})});
   const d=await r.json();
-  if(d.error){console.error("claudeSearch API error:",JSON.stringify(d.error));throw new Error(d.error.message||"API error");}
+  if(d.error){
+    console.error("claudeSearch API error:",JSON.stringify(d.error));
+    const msg=d.error.message||"API error";
+    if(msg.includes("rate limit")||msg.includes("rate_limit")||d.error.type==="rate_limit_error"){
+      throw new Error("Rate limit hit. Wait 60 seconds then try again. Tip: avoid running multiple tools at once.");
+    }
+    if(msg.includes("invalid_api_key")||d.error.type==="authentication_error"){
+      throw new Error("Invalid API key. Tap ⚙️ to re-enter your key from console.anthropic.com");
+    }
+    throw new Error(msg);
+  }
   // Collect all text blocks — web search may interleave tool_use and text blocks
   const text=d.content?.filter(b=>b.type==="text").map(b=>b.text).join("")||"";
   // If no text block yet (only tool_use blocks), the model is still searching
@@ -451,20 +474,42 @@ function Guide({wl,setWl,prices,setPrices,goToolkit,notifications,setNotificatio
   },[wl]);
 
   const ldRef=useRef({});
+  // Load from sessionStorage cache first to avoid repeat API calls on refresh
+  useEffect(()=>{
+    try{
+      const cached=JSON.parse(sessionStorage.getItem("ai_hub_ld_cache")||"{}");
+      if(Object.keys(cached).length>0){
+        ldRef.current=cached;
+        setLd(cached);
+      }
+    }catch{}
+  },[]);
   const loadFull=useCallback(async(t)=>{
-    if(ldRef.current[t])return;
-    ldRef.current[t]=true;// mark in progress
+    if(ldRef.current[t]&&ldRef.current[t]!==false)return;// already loaded or in progress
+    ldRef.current[t]=true;
     const d=await yahooFull(t);
-    if(d){ldRef.current[t]=d;setLd(prev=>({...prev,[t]:d}));}
-    else{ldRef.current[t]=false;}// allow retry
+    if(d){
+      ldRef.current[t]=d;
+      setLd(prev=>{
+        const updated={...prev,[t]:d};
+        try{sessionStorage.setItem("ai_hub_ld_cache",JSON.stringify(updated));}catch{}
+        return updated;
+      });
+    }else{ldRef.current[t]=false;}
   },[]);
 
   useEffect(()=>{
-    refresh(sector.stocks.map(s=>s.t));
+    // Only reset UI on sector change — no auto price fetch (saves API cost)
     if(scrollRef.current)scrollRef.current.scrollTop=0;
     setOpen(null);setSrch("");
   },[si]);
-  useEffect(()=>{if(tab==="watchlist"&&wlStocks.length)refresh(wlStocks.map(s=>s.t));},[tab]);
+  // Watchlist: only fetch prices if we don't already have them cached
+  useEffect(()=>{
+    if(tab==="watchlist"&&wlStocks.length){
+      const missing=wlStocks.filter(s=>!prices[s.t]);
+      if(missing.length>0)refresh(missing.map(s=>s.t));
+    }
+  },[tab]);
 
   const toggleWl=(t,price)=>{
     const u={...wl};
@@ -678,9 +723,9 @@ function AIScorer(){
 
   return React.createElement("div",null,
     React.createElement("div",{style:{fontSize:9,letterSpacing:3,color:C.ac,textTransform:"uppercase",marginBottom:6}},"AI Stock Scorer"),
-    React.createElement("p",{style:{fontSize:11,color:C.di,marginBottom:12,lineHeight:1.6}},"Enter any ticker. Claude pulls live financials and scores the stock across 5 dimensions with probability stats."),
+    React.createElement("p",{style:{fontSize:11,color:C.di,marginBottom:12,lineHeight:1.6}},"Enter any ticker. Claude pulls live financials and scores the stock across 5 dimensions with probability stats."),React.createElement("div",{style:{fontSize:9,color:C.go,background:`${C.go}10`,border:`1px solid ${C.go}25`,borderRadius:5,padding:"4px 9px",marginBottom:10,display:"inline-block"}},"Est. cost: ~$0.010 per analysis"),
     React.createElement("div",{style:{display:"flex",gap:7,marginBottom:14,flexWrap:"wrap"}},
-      React.createElement(Inp,{value:ticker,onChange:setTicker,placeholder:"e.g. NVDA",style:{width:100,textTransform:"uppercase"}}),
+      React.createElement("input",{value:ticker,onChange:ex=>setTicker(ex.target.value),onKeyDown:ex=>{if(ex.key==="Enter"&&!loading&&ticker.trim())run();},placeholder:"e.g. NVDA",style:{background:C.bg,border:`1px solid ${C.b}`,borderRadius:7,color:C.tx,fontSize:12,padding:"8px 10px",outline:"none",width:100,textTransform:"uppercase"}}),
       React.createElement(Btn,{onClick:run,disabled:loading||!ticker.trim()},loading?"Analyzing…":"Analyze →")
     ),
     error&&React.createElement("div",{style:{color:C.re,fontSize:10,marginBottom:8}},error),
@@ -952,7 +997,7 @@ function MorningBriefing({wl}){
   const ac2=(a)=>a==="Buy Dip"?C.gr:a==="Take Profit"?C.go:a==="Avoid"?C.re:C.ac;
   return React.createElement("div",null,
     React.createElement("div",{style:{fontSize:9,letterSpacing:3,color:C.ac,textTransform:"uppercase",marginBottom:6}},"🤖 Morning AI Briefing"),
-    React.createElement("p",{style:{fontSize:11,color:C.di,marginBottom:12,lineHeight:1.6}},"Your AI agent scans overnight news, price moves, and market sentiment across your entire watchlist and delivers a morning brief with actionable ideas."),
+    React.createElement("p",{style:{fontSize:11,color:C.di,marginBottom:12,lineHeight:1.6}},"Your AI agent scans overnight news, price moves, and market sentiment across your entire watchlist and delivers a morning brief with actionable ideas."),React.createElement("div",{style:{fontSize:9,color:C.go,background:`${C.go}10`,border:`1px solid ${C.go}25`,borderRadius:5,padding:"4px 9px",marginBottom:10,display:"inline-block"}},"Est. cost: ~$0.008 per run"),
     wlStocks.length===0
       ?React.createElement("div",{style:{background:C.s2,border:`1px solid ${C.b}`,borderRadius:8,padding:14,textAlign:"center",color:C.mu,fontSize:12}},"Add stocks to your watchlist first — go to the Guide and tap ☆ on any stock.")
       :React.createElement("div",null,
@@ -1030,12 +1075,12 @@ function EarningsCalendar({wl}){
     }catch{setData({upcoming:[],recent:[]});}
     setLoading(false);
   },[targets]);
-  const hasFetched=useRef(false);useEffect(()=>{if(!hasFetched.current){hasFetched.current=true;fetch_();}},[]);
+  // No auto-fetch — user clicks Refresh to load (saves API cost)
   const ic=(i)=>i==="High"?C.re:i==="Medium"?C.go:C.mu;
   return React.createElement("div",null,
     React.createElement("div",{style:{fontSize:9,letterSpacing:3,color:C.ac,textTransform:"uppercase",marginBottom:6}},"📅 Earnings Calendar"),
     React.createElement("p",{style:{fontSize:11,color:C.di,marginBottom:10,lineHeight:1.6}},"Upcoming earnings dates and recent results for your watchlist. Earnings are the biggest single catalyst for price moves."),
-    React.createElement("button",{onClick:fetch_,disabled:loading,style:{padding:"6px 13px",borderRadius:7,border:`1px solid ${C.ac}50`,background:`${C.ac}12`,color:C.ac,fontSize:11,cursor:"pointer",marginBottom:12}},loading?"Loading…":"⟳ Refresh"),
+    React.createElement("button",{onClick:fetch_,disabled:loading,style:{padding:"6px 13px",borderRadius:7,border:`1px solid ${C.ac}50`,background:`${C.ac}12`,color:C.ac,fontSize:11,cursor:"pointer",marginBottom:12}},loading?"Loading…":data?"⟳ Refresh":"📅 Load Earnings Calendar"),
     loading&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,color:C.mu,fontSize:11,padding:"8px 0"}},React.createElement("div",{style:{width:13,height:13,border:`2px solid ${C.b}`,borderTop:`2px solid ${C.ac}`,borderRadius:"50%",animation:"spin 0.8s linear infinite"}}),"Fetching earnings data…"),
     data&&React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:12}},
       React.createElement("div",null,
@@ -1105,7 +1150,7 @@ function TechnicalSignals(){
     React.createElement("div",{style:{fontSize:9,letterSpacing:3,color:C.ac,textTransform:"uppercase",marginBottom:6}},"📈 Technical Signals"),
     React.createElement("p",{style:{fontSize:11,color:C.di,marginBottom:12,lineHeight:1.6}},"RSI, MACD, moving averages, support/resistance, and entry zones. Combine fundamentals with technicals for better timing."),
     React.createElement("div",{style:{display:"flex",gap:7,marginBottom:12,flexWrap:"wrap"}},
-      React.createElement("input",{value:ticker,onChange:ex=>setTicker(ex.target.value),placeholder:"e.g. NVDA",style:{background:C.bg,border:`1px solid ${C.b}`,borderRadius:7,color:C.tx,fontSize:12,padding:"8px 10px",outline:"none",width:100,textTransform:"uppercase"}}),
+      React.createElement("input",{value:ticker,onChange:ex=>setTicker(ex.target.value),onKeyDown:ex=>{if(ex.key==="Enter"&&!loading&&ticker.trim())analyze();},placeholder:"e.g. NVDA",style:{background:C.bg,border:`1px solid ${C.b}`,borderRadius:7,color:C.tx,fontSize:12,padding:"8px 10px",outline:"none",width:100,textTransform:"uppercase"}}),
       React.createElement("button",{onClick:analyze,disabled:loading||!ticker.trim(),style:{padding:"8px 14px",borderRadius:7,border:`1px solid ${C.ac}60`,background:loading?`${C.ac}08`:`${C.ac}18`,color:loading?C.mu:C.ac,fontSize:12,cursor:loading?"not-allowed":"pointer"}},"Analyze →")
     ),
     error&&React.createElement("div",{style:{color:C.re,fontSize:10,marginBottom:8}},error),
@@ -1221,7 +1266,7 @@ function NewsSentiment(){
     React.createElement("div",{style:{fontSize:9,letterSpacing:3,color:C.ac,textTransform:"uppercase",marginBottom:6}},"📰 News & Sentiment"),
     React.createElement("p",{style:{fontSize:11,color:C.di,marginBottom:12,lineHeight:1.6}},"Real-time news sentiment, Reddit buzz, institutional activity, and narrative shifts. Catch story changes before they move the price."),
     React.createElement("div",{style:{display:"flex",gap:7,marginBottom:12,flexWrap:"wrap"}},
-      React.createElement("input",{value:ticker,onChange:ex=>setTicker(ex.target.value),placeholder:"e.g. NVDA",style:{background:C.bg,border:`1px solid ${C.b}`,borderRadius:7,color:C.tx,fontSize:12,padding:"8px 10px",outline:"none",width:100,textTransform:"uppercase"}}),
+      React.createElement("input",{value:ticker,onChange:ex=>setTicker(ex.target.value),onKeyDown:ex=>{if(ex.key==="Enter"&&!loading&&ticker.trim())fetch_();},placeholder:"e.g. NVDA",style:{background:C.bg,border:`1px solid ${C.b}`,borderRadius:7,color:C.tx,fontSize:12,padding:"8px 10px",outline:"none",width:100,textTransform:"uppercase"}}),
       React.createElement("button",{onClick:fetch_,disabled:loading||!ticker.trim(),style:{padding:"8px 14px",borderRadius:7,border:`1px solid ${C.ac}60`,background:loading?`${C.ac}08`:`${C.ac}18`,color:loading?C.mu:C.ac,fontSize:12,cursor:loading?"not-allowed":"pointer"}},"Analyze →")
     ),
     error&&React.createElement("div",{style:{color:C.re,fontSize:10,marginBottom:8}},error),
@@ -1267,11 +1312,305 @@ function NewsSentiment(){
   );
 }
 
+
+// ═══ ALPACA PAPER TRADING ═════════════════════════════════
+// Uses Alpaca paper trading API — no real money at risk until you change the URL
+const ALPACA_KEY_STORE="ai_hub_alpaca_key";
+const ALPACA_SECRET_STORE="ai_hub_alpaca_secret";
+const getALK=()=>localStorage.getItem(ALPACA_KEY_STORE)||"";
+const getALS=()=>localStorage.getItem(ALPACA_SECRET_STORE)||"";
+// Paper trading URL — change to https://api.alpaca.markets for live (real money)
+const ALPACA_BASE="https://paper-api.alpaca.markets";
+
+async function alpacaFetch(path,method="GET",body=null){
+  const k=getALK(),s=getALS();
+  if(!k||!s)throw new Error("Alpaca keys not set. Tap Setup to add them.");
+  const opts={method,headers:{"APCA-API-KEY-ID":k,"APCA-API-SECRET-KEY":s,"Content-Type":"application/json"},signal:AbortSignal.timeout(15000)};
+  if(body)opts.body=JSON.stringify(body);
+  const r=await fetch(ALPACA_BASE+path,opts);
+  if(!r.ok){
+    const err=await r.json().catch(()=>({}));
+    throw new Error(err.message||`Alpaca error ${r.status}`);
+  }
+  return r.status===204?{}:await r.json();
+}
+
+function AlpacaTrader({wl}){
+  const [setup,setSetup]=useState(false);
+  const [keyInp,setKeyInp]=useState("");
+  const [secInp,setSecInp]=useState("");
+  const [account,setAccount]=useState(null);
+  const [positions,setPositions]=useState([]);
+  const [orders,setOrders]=useState([]);
+  const [loading,setLoading]=useState(false);
+  const [tradeLoading,setTradeLoading]=useState("");
+  const [msg,setMsg]=useState(null); // {text,color}
+  const [tab,setTab]=useState("account");
+  const hasKeys=!!(getALK()&&getALS());
+  const allStocks=SECTORS.flatMap(s=>s.stocks.map(st=>({...st})));
+  const wlStocks=allStocks.filter(s=>wl[s.t]);
+
+  // Trade form state
+  const [tradeSymbol,setTradeSymbol]=useState("");
+  const [tradeSide,setTradeSide]=useState("buy");
+  const [tradeQty,setTradeQty]=useState("");
+  const [tradeType,setTradeType]=useState("market");
+  const [tradeLimitPx,setTradeLimitPx]=useState("");
+  const [tradeStop,setTradeStop]=useState("");
+
+  const showMsg=(text,color=C.gr,duration=4000)=>{
+    setMsg({text,color});
+    setTimeout(()=>setMsg(null),duration);
+  };
+
+  const saveKeys=async()=>{
+    if(!keyInp.trim()||!secInp.trim()){showMsg("Both fields required",C.re);return;}
+    setLoading(true);
+    try{
+      localStorage.setItem(ALPACA_KEY_STORE,keyInp.trim());
+      localStorage.setItem(ALPACA_SECRET_STORE,secInp.trim());
+      const acct=await alpacaFetch("/v2/account");
+      setAccount(acct);setSetup(false);
+      showMsg("✓ Connected to Alpaca paper trading");
+    }catch(err){
+      localStorage.removeItem(ALPACA_KEY_STORE);localStorage.removeItem(ALPACA_SECRET_STORE);
+      showMsg("Connection failed: "+err.message,C.re,6000);
+    }
+    setLoading(false);
+  };
+
+  const loadAccount=useCallback(async()=>{
+    if(!hasKeys)return;
+    setLoading(true);
+    try{
+      const [acct,pos,ords]=await Promise.all([
+        alpacaFetch("/v2/account"),
+        alpacaFetch("/v2/positions"),
+        alpacaFetch("/v2/orders?status=open&limit=20"),
+      ]);
+      setAccount(acct);setPositions(Array.isArray(pos)?pos:[]);setOrders(Array.isArray(ords)?ords:[]);
+    }catch(err){showMsg("Load failed: "+err.message,C.re);}
+    setLoading(false);
+  },[hasKeys]);
+
+  useEffect(()=>{if(hasKeys&&tab==="account")loadAccount();},[tab,hasKeys]);
+
+  const placeTrade=async()=>{
+    const sym=tradeSymbol.trim().toUpperCase();
+    if(!sym||!tradeQty||parseFloat(tradeQty)<=0){showMsg("Fill in symbol and quantity",C.re);return;}
+    if(tradeType==="limit"&&!tradeLimitPx){showMsg("Limit price required",C.re);return;}
+    // Hard safety guards — always present
+    const qty=parseFloat(tradeQty);
+    if(qty>1000){showMsg("Max 1000 shares per order for safety",C.re);return;}
+    const body={symbol:sym,qty:tradeQty,side:tradeSide,type:tradeType,time_in_force:"day"};
+    if(tradeType==="limit")body.limit_price=tradeLimitPx;
+    if(tradeType==="stop_limit"){body.limit_price=tradeLimitPx;body.stop_price=tradeStop;}
+    // Require explicit confirm before placing any order
+    const confirmMsg=`PAPER TRADE — ${tradeSide.toUpperCase()} ${qty} shares of ${sym} at ${tradeType==="market"?"MARKET":("$"+tradeLimitPx)} price.\n\nThis is PAPER money only — no real funds at risk.\n\nConfirm?`;
+    if(!confirm(confirmMsg))return;
+    setTradeLoading(sym);
+    try{
+      const order=await alpacaFetch("/v2/orders","POST",body);
+      showMsg(`✓ ${tradeSide.toUpperCase()} order placed for ${qty} ${sym} — Order ID: ${order.id?.slice(0,8)}…`);
+      setTradeSymbol("");setTradeQty("");setTradeLimitPx("");setTradeStop("");
+      setTimeout(loadAccount,2000);// refresh after 2s
+    }catch(err){showMsg("Order failed: "+err.message,C.re,8000);}
+    setTradeLoading("");
+  };
+
+  const cancelOrder=async(id)=>{
+    if(!confirm("Cancel this order?"))return;
+    try{await alpacaFetch(`/v2/orders/${id}`,"DELETE");showMsg("Order cancelled");setTimeout(loadAccount,1500);}
+    catch(err){showMsg("Cancel failed: "+err.message,C.re);}
+  };
+
+  const closePosition=async(sym)=>{
+    if(!confirm(`Close entire ${sym} position?`))return;
+    try{await alpacaFetch(`/v2/positions/${sym}`,"DELETE");showMsg(`${sym} position closed`);setTimeout(loadAccount,1500);}
+    catch(err){showMsg("Close failed: "+err.message,C.re);}
+  };
+
+  const fmtCurrency=(v)=>v!=null?`$${parseFloat(v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`:"—";
+  const fmtPnl=(v)=>{const n=parseFloat(v)||0;return`${n>=0?"+":""}${fmtCurrency(Math.abs(n))}`;};
+
+  // ── Setup screen ────────────────────────────────────────
+  if(!hasKeys||setup){
+    return React.createElement("div",null,
+      React.createElement("div",{style:{fontSize:9,letterSpacing:3,color:C.or,textTransform:"uppercase",marginBottom:6}},"📈 Alpaca Paper Trading Setup"),
+      React.createElement("div",{style:{background:`${C.go}10`,border:`1px solid ${C.go}30`,borderRadius:8,padding:"10px 12px",marginBottom:14}},
+        React.createElement("div",{style:{fontSize:10,color:C.go,fontWeight:700,marginBottom:4}},"⚠ Paper Trading Only"),
+        React.createElement("p",{style:{fontSize:11,color:C.di,margin:0,lineHeight:1.6}},"This connects to Alpaca's PAPER trading environment — simulated money only. No real funds at risk. To upgrade to live trading, you would change the API URL in the code after thorough paper testing.")
+      ),
+      React.createElement("div",{style:{background:C.s2,border:`1px solid ${C.b}`,borderRadius:9,padding:"12px 14px",marginBottom:14}},
+        React.createElement("div",{style:{fontSize:10,color:C.go,fontWeight:700,marginBottom:8}},"Get your free Alpaca paper keys:"),
+        React.createElement("div",{style:{fontSize:11,color:C.di,lineHeight:1.8,marginBottom:8}},
+          "1. Go to alpaca.markets → Sign up free\n2. Dashboard → Paper Trading → API Keys\n3. Generate new key pair → copy both values"
+        ),
+        React.createElement("div",{style:{background:C.bg,border:`1px solid ${C.ac}30`,borderRadius:6,padding:"6px 12px",fontSize:11,color:C.ac,textAlign:"center",marginBottom:2}},"alpaca.markets")
+      ),
+      React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:8,marginBottom:14}},
+        React.createElement("div",null,
+          React.createElement("div",{style:{fontSize:9,color:C.mu,marginBottom:3}},"PAPER API KEY ID"),
+          React.createElement(Inp,{value:keyInp,onChange:setKeyInp,placeholder:"PK...",style:{width:"100%",boxSizing:"border-box"}})
+        ),
+        React.createElement("div",null,
+          React.createElement("div",{style:{fontSize:9,color:C.mu,marginBottom:3}},"PAPER SECRET KEY"),
+          React.createElement(Inp,{value:secInp,onChange:setSecInp,placeholder:"Secret...",style:{width:"100%",boxSizing:"border-box"}})
+        )
+      ),
+      React.createElement("div",{style:{display:"flex",gap:8}},
+        React.createElement(Btn,{onClick:saveKeys,disabled:loading||!keyInp.trim()||!secInp.trim(),color:C.or,full:true},loading?"Connecting…":"Connect Paper Trading →"),
+        hasKeys&&React.createElement(Btn,{onClick:()=>setSetup(false),color:C.mu},"Cancel")
+      )
+    );
+  }
+
+  // ── Main trading UI ──────────────────────────────────────
+  return React.createElement("div",null,
+    // Header bar
+    React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:6}},
+      React.createElement("div",null,
+        React.createElement("div",{style:{fontSize:9,letterSpacing:3,color:C.or,textTransform:"uppercase",marginBottom:2}},"📈 Alpaca Paper Trading"),
+        React.createElement("div",{style:{fontSize:9,color:C.go,background:`${C.go}10`,border:`1px solid ${C.go}25`,borderRadius:4,padding:"2px 7px",display:"inline-block"}},"PAPER — No real money")
+      ),
+      React.createElement("div",{style:{display:"flex",gap:6}},
+        React.createElement(Btn,{small:true,onClick:loadAccount,disabled:loading},loading?"…":"⟳"),
+        React.createElement(Btn,{small:true,color:C.mu,onClick:()=>setSetup(true)},"⚙️ Keys")
+      )
+    ),
+    // Message toast
+    msg&&React.createElement("div",{style:{background:`${msg.color}15`,border:`1px solid ${msg.color}40`,borderRadius:7,padding:"8px 12px",marginBottom:10,fontSize:11,color:msg.color}},msg.text),
+    // Account summary
+    account&&React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,marginBottom:12}},
+      [
+        ["Portfolio Value",fmtCurrency(account.portfolio_value),C.tx],
+        ["Buying Power",fmtCurrency(account.buying_power),C.ac],
+        ["Today's P&L",fmtPnl(account.equity-account.last_equity),(parseFloat(account.equity)-parseFloat(account.last_equity))>=0?C.gr:C.re],
+        ["Cash",fmtCurrency(account.cash),C.di],
+      ].map(([l,v,col])=>
+        React.createElement("div",{key:l,style:{background:C.bg,borderRadius:7,padding:"8px 10px",border:`1px solid ${C.b}`}},
+          React.createElement("div",{style:{fontSize:8,color:C.mu,letterSpacing:1,marginBottom:2}},l.toUpperCase()),
+          React.createElement("div",{style:{fontSize:13,fontWeight:700,color:col}},v)
+        )
+      )
+    ),
+    // Sub-tabs
+    React.createElement("div",{style:{display:"flex",gap:4,marginBottom:12,borderBottom:`1px solid ${C.b}`,paddingBottom:8}},
+      [["trade","⚡ Trade"],["positions","📊 Positions"],["orders","📋 Orders"]].map(([id,lb])=>
+        React.createElement("button",{key:id,onClick:()=>setTab(id),style:{padding:"4px 10px",borderRadius:5,border:`1px solid ${tab===id?C.or:C.b}`,background:tab===id?`${C.or}15`:"transparent",color:tab===id?C.or:C.mu,fontSize:10,cursor:"pointer"}},lb)
+      )
+    ),
+    // ── TRADE TAB ──────────────────────────────────────────
+    tab==="trade"&&React.createElement("div",null,
+      // Quick-trade from watchlist
+      wlStocks.length>0&&React.createElement("div",{style:{marginBottom:14}},
+        React.createElement("div",{style:{fontSize:9,color:C.mu,letterSpacing:2,marginBottom:7}},"QUICK TRADE FROM WATCHLIST"),
+        React.createElement("div",{style:{display:"flex",gap:5,flexWrap:"wrap"}},
+          wlStocks.map(s=>React.createElement("button",{key:s.t,
+            onClick:()=>{setTradeSymbol(s.t);setTab("trade");},
+            style:{padding:"4px 9px",borderRadius:5,border:`1px solid ${C.b}`,background:`${C.ac}10`,color:C.ac,fontSize:10,cursor:"pointer"}},s.t))
+        )
+      ),
+      // Trade form
+      React.createElement("div",{style:{background:C.s2,borderRadius:9,padding:"12px 14px",border:`1px solid ${C.b}`}},
+        React.createElement("div",{style:{fontSize:9,color:C.or,letterSpacing:2,marginBottom:10}},"PLACE ORDER"),
+        React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}},
+          // Symbol
+          React.createElement("div",null,
+            React.createElement("div",{style:{fontSize:9,color:C.mu,marginBottom:3}},"SYMBOL"),
+            React.createElement("input",{value:tradeSymbol,onChange:ex=>setTradeSymbol(ex.target.value.toUpperCase()),onKeyDown:ex=>{if(ex.key==="Enter")document.getElementById("alpaca-qty")?.focus();},placeholder:"e.g. NVDA",style:{background:C.bg,border:`1px solid ${C.b}`,borderRadius:7,color:C.tx,fontSize:12,padding:"7px 9px",outline:"none",width:"100%",boxSizing:"border-box",textTransform:"uppercase"}})
+          ),
+          // Qty
+          React.createElement("div",null,
+            React.createElement("div",{style:{fontSize:9,color:C.mu,marginBottom:3}},"SHARES"),
+            React.createElement("input",{id:"alpaca-qty",value:tradeQty,onChange:ex=>setTradeQty(ex.target.value),type:"number",min:"1",max:"1000",placeholder:"e.g. 5",style:{background:C.bg,border:`1px solid ${C.b}`,borderRadius:7,color:C.tx,fontSize:12,padding:"7px 9px",outline:"none",width:"100%",boxSizing:"border-box"}})
+          ),
+          // Side
+          React.createElement("div",null,
+            React.createElement("div",{style:{fontSize:9,color:C.mu,marginBottom:3}},"SIDE"),
+            React.createElement("div",{style:{display:"flex",gap:5}},
+              ["buy","sell"].map(s=>React.createElement("button",{key:s,onClick:()=>setTradeSide(s),style:{flex:1,padding:"7px 0",borderRadius:6,border:`1px solid ${tradeSide===s?(s==="buy"?C.gr:C.re):C.b}`,background:tradeSide===s?(s==="buy"?`${C.gr}20`:`${C.re}20`):"transparent",color:tradeSide===s?(s==="buy"?C.gr:C.re):C.mu,fontSize:11,cursor:"pointer",textTransform:"uppercase",fontWeight:tradeSide===s?700:400}},s))
+            )
+          ),
+          // Order type
+          React.createElement("div",null,
+            React.createElement("div",{style:{fontSize:9,color:C.mu,marginBottom:3}},"ORDER TYPE"),
+            React.createElement("select",{value:tradeType,onChange:ex=>setTradeType(ex.target.value),style:{background:C.bg,border:`1px solid ${C.b}`,borderRadius:7,color:C.tx,fontSize:11,padding:"7px 9px",outline:"none",width:"100%",boxSizing:"border-box"}},
+              React.createElement("option",{value:"market"},"Market"),
+              React.createElement("option",{value:"limit"},"Limit"),
+              React.createElement("option",{value:"stop_limit"},"Stop Limit")
+            )
+          ),
+          // Limit price (conditional)
+          (tradeType==="limit"||tradeType==="stop_limit")&&React.createElement("div",null,
+            React.createElement("div",{style:{fontSize:9,color:C.mu,marginBottom:3}},"LIMIT PRICE ($)"),
+            React.createElement("input",{value:tradeLimitPx,onChange:ex=>setTradeLimitPx(ex.target.value),type:"number",placeholder:"e.g. 875.00",style:{background:C.bg,border:`1px solid ${C.b}`,borderRadius:7,color:C.tx,fontSize:12,padding:"7px 9px",outline:"none",width:"100%",boxSizing:"border-box"}})
+          ),
+          tradeType==="stop_limit"&&React.createElement("div",null,
+            React.createElement("div",{style:{fontSize:9,color:C.mu,marginBottom:3}},"STOP PRICE ($)"),
+            React.createElement("input",{value:tradeStop,onChange:ex=>setTradeStop(ex.target.value),type:"number",placeholder:"e.g. 850.00",style:{background:C.bg,border:`1px solid ${C.b}`,borderRadius:7,color:C.tx,fontSize:12,padding:"7px 9px",outline:"none",width:"100%",boxSizing:"border-box"}})
+          )
+        ),
+        React.createElement("button",{
+          onClick:placeTrade,
+          disabled:!!tradeLoading||!tradeSymbol.trim()||!tradeQty,
+          style:{width:"100%",padding:"10px 0",borderRadius:8,border:`1px solid ${tradeSide==="buy"?C.gr:C.re}60`,background:tradeLoading?`${C.b}`:(tradeSide==="buy"?`${C.gr}20`:`${C.re}20`),color:tradeLoading?C.mu:(tradeSide==="buy"?C.gr:C.re),fontSize:12,fontWeight:700,cursor:tradeLoading?"not-allowed":"pointer",letterSpacing:0.5}},
+          tradeLoading?`Placing order…`:`${tradeSide==="buy"?"BUY ▲":"SELL ▼"} ${tradeQty||"?"} × ${tradeSymbol||"?"} — PAPER`
+        )
+      )
+    ),
+    // ── POSITIONS TAB ──────────────────────────────────────
+    tab==="positions"&&React.createElement("div",null,
+      positions.length===0
+        ?React.createElement("div",{style:{textAlign:"center",padding:"30px 20px",color:C.mu,fontSize:12}},"No open positions. Place a trade to get started.")
+        :positions.map(p=>{
+          const pnl=parseFloat(p.unrealized_pl)||0;
+          const pnlPct=parseFloat(p.unrealized_plpc)||0;
+          return React.createElement("div",{key:p.symbol,style:{background:C.s2,border:`1px solid ${pnl>=0?C.gr+"30":C.re+"30"}`,borderRadius:8,padding:"10px 12px",marginBottom:8}},
+            React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}},
+              React.createElement("div",null,
+                React.createElement("div",{style:{fontSize:13,fontWeight:700,color:C.tx}},p.symbol),
+                React.createElement("div",{style:{fontSize:10,color:C.mu}},`${p.qty} shares @ avg $${parseFloat(p.avg_entry_price).toFixed(2)}`)
+              ),
+              React.createElement("div",{style:{textAlign:"right"}},
+                React.createElement("div",{style:{fontSize:13,fontWeight:700,color:C.tx}},`$${parseFloat(p.current_price).toFixed(2)}`),
+                React.createElement("div",{style:{fontSize:10,color:pnl>=0?C.gr:C.re}},`${pnl>=0?"+":""}${fmtCurrency(pnl)} (${(pnlPct*100).toFixed(2)}%)`)
+              )
+            ),
+            React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
+              React.createElement("div",{style:{fontSize:10,color:C.mu}},`Mkt value: $${parseFloat(p.market_value).toFixed(2)}`),
+              React.createElement("button",{onClick:()=>closePosition(p.symbol),style:{padding:"3px 10px",borderRadius:5,border:`1px solid ${C.re}50`,background:`${C.re}15`,color:C.re,fontSize:10,cursor:"pointer"}},"Close")
+            )
+          );
+        })
+    ),
+    // ── ORDERS TAB ─────────────────────────────────────────
+    tab==="orders"&&React.createElement("div",null,
+      orders.length===0
+        ?React.createElement("div",{style:{textAlign:"center",padding:"30px 20px",color:C.mu,fontSize:12}},"No open orders.")
+        :orders.map(o=>React.createElement("div",{key:o.id,style:{background:C.s2,border:`1px solid ${C.b}`,borderRadius:8,padding:"9px 11px",marginBottom:7}},
+          React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}},
+            React.createElement("div",null,
+              React.createElement("div",{style:{display:"flex",gap:6,alignItems:"center",marginBottom:3}},
+                React.createElement("span",{style:{fontSize:12,fontWeight:700,color:C.tx}},o.symbol),
+                React.createElement("span",{style:{fontSize:9,padding:"1px 5px",borderRadius:3,background:o.side==="buy"?`${C.gr}20`:`${C.re}20`,color:o.side==="buy"?C.gr:C.re,fontWeight:700}},o.side.toUpperCase()),
+                React.createElement("span",{style:{fontSize:9,color:C.mu}},o.type)
+              ),
+              React.createElement("div",{style:{fontSize:10,color:C.mu}},`${o.qty} shares · ${o.status} · ${new Date(o.created_at).toLocaleTimeString()}`)
+            ),
+            React.createElement("button",{onClick:()=>cancelOrder(o.id),style:{padding:"3px 9px",borderRadius:5,border:`1px solid ${C.re}50`,background:`${C.re}15`,color:C.re,fontSize:10,cursor:"pointer"}},"Cancel")
+          )
+        ))
+    )
+  );
+}
+
 // ═══ TOOLKIT (updated with all tools) ════════════════════
 function Toolkit({wl}){
   const [tool,setTool]=useState("briefing");
   const tools=[
     {id:"briefing",l:"🤖 Morning Brief",C:()=>React.createElement(MorningBriefing,{wl})},
+    {id:"alpaca",l:"📈 Paper Trade",C:()=>React.createElement(AlpacaTrader,{wl})},
     {id:"scorer",l:"🎯 AI Scorer",C:AIScorer},
     {id:"technicals",l:"📈 Technicals",C:TechnicalSignals},
     {id:"news",l:"📰 Sentiment",C:NewsSentiment},
@@ -1305,6 +1644,7 @@ function KeySetup({onSave}){
     setTesting(true);setErr("");
     try{
       const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",
+        signal:AbortSignal.timeout(15000),
         headers:{"Content-Type":"application/json","x-api-key":k,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
         body:JSON.stringify({model:"claude-haiku-4-5",max_tokens:10,messages:[{role:"user",content:"Hi"}]})});
       if(r.status===200||r.status===400){setAK(k);onSave();}
