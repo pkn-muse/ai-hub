@@ -1,0 +1,1318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AI Hub">
+<title>AI Investment Hub</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+html,body,#root{height:100%;overflow:hidden}
+body{background:#06080f;font-family:'Courier New',monospace;color:#dce4f0}
+input,select,textarea,button{font-family:'Courier New',monospace}
+textarea{resize:vertical}
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-thumb{background:#1a2236;border-radius:2px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+.sa{overflow-y:auto;-webkit-overflow-scrolling:touch}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useCallback,useRef}=React;
+const e=React.createElement;
+
+const C={bg:"#06080f",s1:"#0c0f1a",s2:"#0f1421",b:"#161d2e",b2:"#1e2840",
+  tx:"#dce4f0",mu:"#4a5870",di:"#8090a8",
+  ac:"#00e5ff",gr:"#00ff9d",re:"#ff3d6b",go:"#ffc200",pu:"#b06eff",or:"#ff7c3a"};
+
+const GC={"Very High":"#ff4d4d",High:"#ff9500","Medium-High":"#ffd700",Medium:"#00c896"};
+const SC={Early:"#a259ff",Growing:"#00d4ff",Established:"#39ff14"};
+const SRC={Wedbush:"#ff9500","Dan Ives":"#ff9500","Motley Fool":"#00c896",Reddit:"#ff4500","Cathie Wood":"#b06eff",Needham:"#00d4ff",Analysts:"#607080","Goldman Sachs":"#4ade80",JPMorgan:"#60a5fa",ARK:"#b06eff"};
+
+// ═══════════════ SECTOR DATA ═══════════════════════════
+const SECTORS=[
+{id:"infra",lb:"Infrastructure",ic:"⚙️",co:"#00d4ff",ds:"Chips, data centers, networking & power. The picks-and-shovels layer that wins regardless of which AI model dominates.",
+stocks:[
+ {t:"NVDA",n:"NVIDIA",th:"Owns the GPU standard for AI training. Revenue $215.9B in 2025 (+65% YoY). Rubin platform launching H2 2026. Demand outstrips supply. Expanding into robotics and AV.",ri:"High valuation; competition from custom chips",gr:"Very High",st:"Established",ca:"Mega",src:["Wedbush","Reddit","Motley Fool"],vc:"a16z, Sequoia both have NVDA exposure via portfolio companies"},
+ {t:"TSM",n:"Taiwan Semiconductor",th:"Manufactures chips for NVIDIA, Apple, AMD, and every major AI hardware company. Revenue +36% to $122B in 2025. 2nm node sold out for 2026.",ri:"Taiwan geopolitical risk",gr:"High",st:"Established",ca:"Mega",src:["Motley Fool","Reddit"],vc:"The foundry backbone for every major VC-backed AI chip startup"},
+ {t:"AVGO",n:"Broadcom",th:"Google, Meta, OpenAI build custom AI ASICs with Broadcom. Q1 FY2026 AI revenue +106% to $8.4B. Also supplies networking silicon connecting AI clusters.",ri:"Customer concentration in hyperscalers",gr:"High",st:"Established",ca:"Mega",src:["Reddit","Analysts"],vc:"Hyperscalers backed by a16z and Sequoia all route through Broadcom ASICs"},
+ {t:"AMD",n:"Advanced Micro Devices",th:"Main NVIDIA alternative in AI chips. MI300X GPU gaining enterprise traction. Bundles CPUs + GPUs + networking.",ri:"Distant second to NVIDIA in AI GPUs",gr:"High",st:"Growing",ca:"Large",src:["Reddit","Motley Fool"],vc:""},
+ {t:"ANET",n:"Arista Networks",th:"Dominant in high-speed Ethernet switching for AI data centers. Surpassed Cisco in market share. 2026 AI networking revenue target $3.25B.",ri:"Cloud customer concentration; order cycle swings",gr:"High",st:"Established",ca:"Large",src:["Analysts"],vc:""},
+ {t:"MU",n:"Micron Technology",th:"Top HBM supplier. AI workloads need high-bandwidth memory. As models get larger, memory demand grows exponentially. Reddit community called it a picks-and-shovels play.",ri:"Highly cyclical; Samsung competition",gr:"High",st:"Established",ca:"Large",src:["Reddit","Motley Fool"],vc:""},
+ {t:"MRVL",n:"Marvell Technology",th:"Custom AI accelerator chips and high-speed networking for hyperscalers. AI revenue +106% Q1 FY2026. Acquired Celestial AI for optical interconnects.",ri:"Integration risk; customer concentration",gr:"Very High",st:"Growing",ca:"Large",src:["Analysts"],vc:""},
+ {t:"NBIS",n:"Nebius Group",th:"Reddit #5 WSB pick for 2026. Emerging AI cloud infrastructure spun off from Yandex. Provides GPU clusters, data labeling, AI developer tools. Motley Fool predicts monster growth.",ri:"Tiny revenue base; Russia-linked origins; high beta 3.0+",gr:"Very High",st:"Early",ca:"Small",src:["Reddit","Motley Fool"],vc:"Backed by notable tech investors post-spin-off"},
+ {t:"CRWV",n:"CoreWeave",th:"Pure-play AI cloud compute. Revenue $5.1B in 2025, targeting $10B+. Cathie Wood bought $12.9M of the dip. Provides GPU compute to AI labs.",ri:"67% revenue from Microsoft; heavy debt; down 50% from highs",gr:"Very High",st:"Early",ca:"Large",src:["Cathie Wood","Reddit"],vc:"Backed by Magnetar, Microsoft, NVIDIA investment"},
+ {t:"ALAB",n:"Astera Labs",th:"Motley Fool under-the-radar pick. Makes connectivity chips moving data between AI processors. Revenue +93% YoY. Customers include Microsoft and Amazon. Profitable and growing.",ri:"High valuation for its size; customer concentration",gr:"Very High",st:"Growing",ca:"Mid",src:["Motley Fool"],vc:""},
+ {t:"VRT",n:"Vertiv Holdings",th:"Makes power and thermal management for data centers. AI data centers run hotter — Vertiv's cooling systems are essential. Q1 2026 net sales +30%.",ri:"Supply chain constraints; execution on massive order backlog",gr:"High",st:"Growing",ca:"Large",src:["Analysts"],vc:""},
+ {t:"SMCI",n:"Super Micro Computer",th:"Builds AI servers with NVIDIA GPUs for data centers. Faster time-to-market than Dell. Recovering from 2024 accounting issues. Direct beneficiary of AI server demand surge.",ri:"Accounting/audit issues 2024; reputational damage; volatile",gr:"High",st:"Growing",ca:"Mid",src:["Reddit"],vc:""},
+ {t:"DELL",n:"Dell Technologies",th:"Dell AI Factory makes enterprise AI deployment easy. AI server business surging as companies build on-premise infrastructure. More accessible AI play than buying NVDA directly.",ri:"Thin hardware margins; dependent on NVIDIA supply",gr:"Medium-High",st:"Growing",ca:"Large",src:["Analysts"],vc:""},
+ {t:"ARM",n:"Arm Holdings",th:"Designs CPU architecture inside virtually every smartphone and increasingly AI chips and servers. Royalty-based model means revenue grows as AI silicon volume grows.",ri:"Heavy SoftBank ownership; high valuation relative to earnings",gr:"High",st:"Established",ca:"Mega",src:["Analysts"],vc:"SoftBank owns majority; a16z portfolio companies use ARM architecture"},
+ {t:"LRCX",n:"Lam Research",th:"Makes semiconductor manufacturing equipment critical for producing advanced chips. Every TSMC fab expansion requires Lam's etch machines.",ri:"China export restrictions; cyclical capex spending",gr:"High",st:"Established",ca:"Large",src:["Analysts"],vc:""},
+ {t:"AMAT",n:"Applied Materials",th:"Largest semiconductor equipment maker. Chipmakers building AI processors rely on Applied Materials. Tied to AI-driven semiconductor investment everywhere.",ri:"Export controls to China; cyclical semiconductor capex",gr:"High",st:"Established",ca:"Mega",src:["Analysts"],vc:""},
+ {t:"ON",n:"ON Semiconductor",th:"Motley Fool under-the-radar pick. Makes power management and sensing chips for AI-driven factories, automobiles, and healthcare. Consistent grower with solid profitability.",ri:"Competition from Navitas; restructuring charges; cyclical",gr:"Medium-High",st:"Growing",ca:"Large",src:["Motley Fool"],vc:""},
+ {t:"IREN",n:"Iris Energy",th:"Reddit AI energy infrastructure pick. Owns and operates GPU computing data centers. Pivoted from Bitcoin mining to AI compute. Undervalued vs peers on per-GPU basis.",ri:"Execution risk; high capex; still early revenue",gr:"Very High",st:"Early",ca:"Small",src:["Reddit"],vc:""},
+ {t:"APLD",n:"Applied Digital",th:"Reddit AI energy infrastructure pick. Builds and operates data centers for AI workloads. Contracts with hyperscalers. Low cost power advantage.",ri:"Capital intensive; customer concentration; volatile",gr:"Very High",st:"Early",ca:"Small",src:["Reddit"],vc:""},
+ {t:"CEG",n:"Constellation Energy",th:"Largest US nuclear fleet. Microsoft signed 20-year deal to restart Three Mile Island. Nuclear always-on profile uniquely suited for hyperscale data centers.",ri:"Nuclear restart capex; regulatory risk",gr:"High",st:"Growing",ca:"Large",src:["Reddit","Analysts"],vc:""},
+ {t:"ETN",n:"Eaton Corporation",th:"Makes electrical components for data centers — power distribution, UPS, circuit breakers. Completed $9.5B Boyd Thermal acquisition for liquid cooling.",ri:"Valuation already elevated; industrial cyclicality",gr:"High",st:"Established",ca:"Large",src:["Analysts"],vc:""},
+ {t:"NTAP",n:"NetApp",th:"Biggest winners of 2026 list pick. Data storage and management for AI workloads. Cloud storage optimized for AI training datasets and model storage. Consistent dividend payer with AI upside.",ri:"Competition from pure-cloud storage; slower growth than peers",gr:"Medium-High",st:"Established",ca:"Large",src:["Analysts"],vc:""},
+ {t:"NET",n:"Cloudflare",th:"Global network for connectivity, security, and AI inference at the edge. Workers AI lets developers run AI models without their own GPU servers.",ri:"Still unprofitable; high valuation; competing against AWS/Azure edge",gr:"High",st:"Growing",ca:"Large",src:["Analysts"],vc:""},
+ {t:"EQIX",n:"Equinix REIT",th:"World's largest data center REIT. Hyperscalers lease space globally. AI spending boom means every company needs more data center space. Dividend-paying with AI growth exposure.",ri:"Rising interest rates; high capex; rate sensitive",gr:"Medium-High",st:"Established",ca:"Large",src:["Analysts"],vc:""},
+ {t:"VST",n:"Vistra Energy",th:"Nuclear and natural gas power winning hyperscaler contracts. AI data centers want 24/7 reliable, carbon-free power. Stock dramatically re-rated on AI power thesis.",ri:"Debt load; regulatory risk; concentrated customers",gr:"High",st:"Growing",ca:"Large",src:["Reddit"],vc:""},
+]},
+{id:"software",lb:"AI Software",ic:"🧠",co:"#a259ff",ds:"Companies embedding AI into enterprise workflows, analytics, and productivity. The layer that converts raw AI power into recurring business revenue.",
+stocks:[
+ {t:"MSFT",n:"Microsoft",th:"Wedbush #1 pick for 2026. Azure OpenAI used by 65%+ of Fortune 500. GitHub Copilot has millions of paid users. Wedbush price target $625 (+28% upside).",ri:"Antitrust scrutiny; Azure must keep accelerating",gr:"High",st:"Established",ca:"Mega",src:["Wedbush","Dan Ives","Reddit"],vc:"a16z, Sequoia, Thrive Capital all back OpenAI — Microsoft's key partner"},
+ {t:"GOOGL",n:"Alphabet",th:"Reddit #4 WSB pick. Best one-stock AI play: Gemini, Google Cloud (+63% YoY), Waymo (robotaxi leader), and DeepMind. Cheapest of Magnificent 7.",ri:"Search disruption long-term; DOJ antitrust cases",gr:"High",st:"Established",ca:"Mega",src:["Reddit","Wedbush","Motley Fool"],vc:"DeepMind is Alphabet's internal VC bet"},
+ {t:"META",n:"Meta Platforms",th:"Meta AI hit 1B monthly active users. AI supercharging ad targeting — earnings +62% YoY in Q1. Llama open-weight models build developer loyalty.",ri:"Regulatory risk in EU; heavy AI/metaverse capex",gr:"High",st:"Established",ca:"Mega",src:["Reddit","Motley Fool"],vc:""},
+ {t:"PLTR",n:"Palantir",th:"Wedbush #2 pick for 2026. Enterprise AI operating system. AIP converts data into real decisions. Q4 2025 revenue +70% YoY. $10B US Army contract. Net dollar retention 150%.",ri:"Trades at 150-200x forward earnings; insider selling",gr:"Very High",st:"Growing",ca:"Large",src:["Wedbush","Dan Ives"],vc:""},
+ {t:"RDDT",n:"Reddit",th:"Reddit picking itself! Cited in majority of AI-generated responses. LLM data licensing revenue growing. Needham highlights AI discoverability advantage.",ri:"Platform risk; dependency on AI companies licensing data",gr:"High",st:"Growing",ca:"Mid",src:["Reddit","Needham"],vc:""},
+ {t:"NOW",n:"ServiceNow",th:"Embedding AI agents across IT, HR, and customer service for 8,400+ enterprises. RPO of $27.7B (+25% YoY). Acquired cybersecurity firm Armis in April 2026 for AI expansion.",ri:"Near-term headwinds from Middle East contract delays; Armis integration",gr:"High",st:"Established",ca:"Large",src:["Motley Fool","Analysts"],vc:""},
+ {t:"SNOW",n:"Snowflake",th:"Data backbone for enterprise AI. Cortex AI lets companies run AI on their own data. Product revenue reaccelerated to 29% growth.",ri:"Competition from Databricks and cloud-native tools",gr:"High",st:"Growing",ca:"Large",src:["Analysts"],vc:"Sequoia is a major Snowflake investor"},
+ {t:"CRM",n:"Salesforce",th:"Agentforce AI agent platform for customer service, sales, and marketing automation. Embedded across the world's largest CRM user base.",ri:"Agentforce adoption pace unclear; high valuation",gr:"High",st:"Established",ca:"Mega",src:["Analysts"],vc:""},
+ {t:"ORCL",n:"Oracle",th:"Quietly becoming a cloud AI powerhouse. Strategic partnership with OpenAI, Microsoft, and SoftBank (Stargate project). Database dominance means enterprises run AI on Oracle data.",ri:"Late mover in cloud vs AWS/Azure/Google; heavy debt",gr:"High",st:"Established",ca:"Mega",src:["Analysts"],vc:""},
+ {t:"DDOG",n:"Datadog",th:"Monitors AI models and applications in production. As enterprises deploy AI, they need to observe and troubleshoot those systems. AI-native monitoring products launched 2025.",ri:"Competition from cloud-native monitoring",gr:"High",st:"Growing",ca:"Large",src:["Analysts"],vc:""},
+ {t:"AMZN",n:"Amazon",th:"Reddit #1 WSB pick for 2026. AWS is the world's largest AI cloud with Bedrock enabling enterprise AI. AWS revenue $116.7B TTM (+17%). Anthropic partnership gives AWS a leading foundation model.",ri:"Regulatory risk; Alexa monetization unclear",gr:"High",st:"Established",ca:"Mega",src:["Reddit"],vc:"Amazon is an investor in Anthropic"},
+ {t:"ADBE",n:"Adobe",th:"Firefly generative AI built natively into Creative Cloud. AI features command premium subscription pricing. Huge installed base of 30M+ creatives.",ri:"Open-source image generation competition",gr:"Medium-High",st:"Established",ca:"Mega",src:["Analysts"],vc:""},
+ {t:"PATH",n:"UiPath",th:"Maestro platform coordinates AI agents, software robots, and humans across enterprise workflows. First GAAP profitable quarter in Q3 FY2026. Revenue +16% YoY.",ri:"History of management turbulence; competitive market",gr:"Medium-High",st:"Growing",ca:"Mid",src:["Analysts"],vc:""},
+ {t:"WDAY",n:"Workday",th:"Dominant HR and finance software for enterprises. AI agents embedded for workforce planning, financial forecasting, and hiring. Data on 10,000+ enterprise customers gives AI products an edge.",ri:"Long sales cycles; competition from SAP with AI",gr:"Medium-High",st:"Established",ca:"Large",src:["Analysts"],vc:""},
+ {t:"GTLB",n:"GitLab",th:"Developer platform where code gets written, reviewed, and deployed. AI coding assistant (GitLab Duo) embedded throughout. As every company uses AI-generated code, GitLab becomes more critical.",ri:"Microsoft GitHub Copilot is a direct competitor",gr:"High",st:"Growing",ca:"Mid",src:["Analysts"],vc:""},
+ {t:"HUBS",n:"HubSpot",th:"AI-powered CRM and marketing automation for SMBs. Breeze AI assistant embedded across marketing, sales, and service. SMBs are rushing to adopt AI tools — HubSpot is their platform.",ri:"Competition from Salesforce moving down-market; high valuation",gr:"High",st:"Growing",ca:"Large",src:["Analysts"],vc:""},
+ {t:"INOD",n:"Innodata",th:"Motley Fool under-the-radar pick. Provides AI data annotation, training data, and content processing to AI companies. Revenue growing fast as AI training data demand explodes.",ri:"Small cap; revenue volatile; depends on AI lab spending",gr:"Very High",st:"Early",ca:"Small",src:["Motley Fool"],vc:""},
+ {t:"AMBA",n:"Ambarella",th:"Biggest winners of 2026 pick. Makes AI-powered computer vision chips for security cameras, drones, and autonomous vehicles. Edge AI inference chips are growing fast.",ri:"Concentrated in surveillance market; geopolitical risk",gr:"High",st:"Growing",ca:"Mid",src:["Analysts"],vc:""},
+ {t:"SOFI",n:"SoFi Technologies",th:"Reddit-loved AI fintech. AI-powered personal finance platform growing rapidly. Banking charter lets SoFi offer products at lower cost. Biggest winners of 2026 list inclusion.",ri:"High competition in banking; regulatory risk; unprofitable",gr:"High",st:"Growing",ca:"Mid",src:["Reddit"],vc:""},
+ {t:"AI",n:"C3.ai",th:"Enterprise AI application platform. Pre-built AI apps for manufacturing, financial services, energy, and government. Strategic partnerships with AWS, Google, and Microsoft.",ri:"Unprofitable; slow growth history; credibility questions",gr:"Medium",st:"Early",ca:"Small",src:["Analysts"],vc:""},
+ {t:"AKAM",n:"Akamai Technologies",th:"Motley Fool under-the-radar pick. Global CDN now adding AI inference at the edge. Akamai's 300,000+ server network becomes an AI inference network. Consistent free cash flow.",ri:"Slower growth than pure-play AI companies; CDN commoditization",gr:"Medium-High",st:"Established",ca:"Large",src:["Motley Fool"],vc:""},
+]},
+{id:"av",lb:"Autonomous Vehicles",ic:"🚗",co:"#ff6b35",ds:"Robotaxis, self-driving trucks, and ADAS. Automotive AI market growing from $19B in 2025 to $75B by 2032. Removing a human driver eliminates 50-75% of operating cost.",
+stocks:[
+ {t:"GOOGL",n:"Alphabet / Waymo",th:"World's most advanced robotaxi — fully driverless in 5 US cities. Backed by Alphabet's unlimited balance sheet. Lidar + AI stack years ahead of competitors.",ri:"City-by-city expansion is capital-intensive; AV regulation unpredictable",gr:"Very High",st:"Early",ca:"Mega",src:["Wedbush","Reddit"],vc:""},
+ {t:"TSLA",n:"Tesla",th:"Wedbush #4 pick. Cybercab robotaxi targeting 2026-2027 launch. Massive real-world driving data from existing fleet. Vision-only approach is cheaper to scale. Wedbush sees $2T market cap.",ri:"Regulatory approvals; timeline slippage; Musk distraction",gr:"High",st:"Growing",ca:"Mega",src:["Wedbush","Dan Ives"],vc:""},
+ {t:"UBER",n:"Uber",th:"Partnering with Waymo for robotaxi deployment on its platform. If AV economics win, Uber as the distribution layer keeps its take rate without paying drivers.",ri:"Disruption risk if Waymo builds its own consumer app at scale",gr:"High",st:"Established",ca:"Large",src:["Analysts"],vc:"Amazon, Toyota are strategic investors"},
+ {t:"MBLY",n:"Mobileye",th:"Provides ADAS technology to 50+ automakers — largest automotive AI company most haven't heard of. EyeQ chips in hundreds of millions of vehicles.",ri:"Intel ownership overhang; revenue slowed in 2024",gr:"High",st:"Growing",ca:"Large",src:["Analysts"],vc:""},
+ {t:"QCOM",n:"Qualcomm",th:"Snapdragon Ride powers Level 2/3 ADAS across GM, BMW, Volvo. Snapdragon Cockpit Elite adds generative AI to in-car digital cockpit.",ri:"Dependent on OEM adoption timelines; Apple lost as phone customer",gr:"Medium-High",st:"Growing",ca:"Large",src:["Analysts"],vc:""},
+ {t:"AUR",n:"Aurora Innovation",th:"Commercial driverless trucking launched May 2025 on Dallas-Houston corridor. Autonomous trucking has better near-term economics than robotaxis.",ri:"Pre-revenue; $201M net loss in Q2 2025; OEM partner dependency",gr:"Very High",st:"Early",ca:"Small",src:["Analysts"],vc:"Amazon, Uber, Toyota all strategic investors"},
+ {t:"RKLB",n:"Rocket Lab",th:"Reddit #2 WSB pick for 2026. Up 180% in the past year. Steady launches, new government and commercial contracts. AI and space convergence play — satellite data feeds AI systems.",ri:"High beta 2.0+; execution risk on Neutron rocket; speculative",gr:"Very High",st:"Early",ca:"Small",src:["Reddit"],vc:""},
+ {t:"ASTS",n:"AST SpaceMobile",th:"Reddit #3 WSB pick. Direct-to-cell satellite technology. AI satellites serving mobile users directly from space. Gaining momentum among speculative tech investors.",ri:"Very high beta 3.0+; execution risk; pre-commercial revenue",gr:"Very High",st:"Early",ca:"Small",src:["Reddit"],vc:""},
+ {t:"LAZR",n:"Luminar Technologies",th:"Premium lidar sensors for autonomous vehicles. Design wins with Volvo and Mercedes. CEO partnered with Jensen Huang. High-performance lidar for longer-range AV detection.",ri:"Cash burn; lidar vs vision-only debate; execution risk at scale",gr:"Very High",st:"Early",ca:"Small",src:["Analysts"],vc:""},
+ {t:"NVDA",n:"NVIDIA DRIVE",th:"DRIVE platform is the AI compute inside Mercedes, Volvo, and dozens of OEMs. Doesn't matter who wins the AV race — more AI in vehicles = more NVIDIA chips.",ri:"Automotive revenue small vs. data center today",gr:"High",st:"Growing",ca:"Mega",src:["Wedbush"],vc:""},
+ {t:"NXPI",n:"NXP Semiconductors",th:"Makes the microcontrollers and wireless chips inside vehicles and smart home devices. Embedded in over 4B devices. As cars become computers, NXP chips are the connective tissue.",ri:"Cyclical semiconductor; China revenue exposure",gr:"Medium-High",st:"Established",ca:"Large",src:["Analysts"],vc:""},
+ {t:"TXN",n:"Texas Instruments",th:"Dominant analog chip maker for automotive applications. As AI-enabled ADAS systems require more sophisticated power management and sensing, TXN chips are embedded throughout.",ri:"Cyclical; slow revenue growth currently; heavy capex cycle",gr:"Medium",st:"Established",ca:"Mega",src:["Analysts"],vc:""},
+ {t:"PONY",n:"Pony.ai",th:"Chinese robotaxi company with operations in the US and China. Listed on Nasdaq. Large-scale commercialization of autonomous driving. Potential acquisition target for Uber.",ri:"Geopolitical risk; China regulatory environment; cash burn",gr:"Very High",st:"Early",ca:"Small",src:["Analysts"],vc:""},
+ {t:"AEVA",n:"Aeva Technologies",th:"4D lidar startup — detects distance AND velocity simultaneously. Partnered with Volkswagen Group for production vehicles. Also targeting industrial robotics.",ri:"Pre-revenue at scale; cash burn; unproven in mass production",gr:"Very High",st:"Early",ca:"Small",src:["Analysts"],vc:""},
+ {t:"LYFT",n:"Lyft",th:"As robotaxis scale via partnerships with AV companies, Lyft positions itself as the distribution platform. Similar thesis to Uber but smaller, cheaper valuation and higher upside if AV deployment succeeds.",ri:"Smaller network than Uber; depends on AV partnership execution",gr:"High",st:"Growing",ca:"Mid",src:["Analysts"],vc:""},
+]},
+{id:"smart",lb:"Smart Homes",ic:"🏠",co:"#00c896",ds:"AI-powered homes that learn and automate. Market growing from $147B in 2025 to $848B by 2034 at 21% CAGR. AI home automation growing at 29.65% CAGR.",
+stocks:[
+ {t:"AMZN",n:"Amazon / Alexa",th:"Alexa is in hundreds of millions of homes. Rolling out more agentic Alexa with reasoning capabilities. AWS is the backend cloud for most third-party smart home devices.",ri:"Alexa monetization disappointing; Google and Apple competing",gr:"High",st:"Established",ca:"Mega",src:["Reddit"],vc:""},
+ {t:"GOOGL",n:"Alphabet / Nest",th:"Google Home and Nest ecosystem (thermostats, cameras, speakers). Gemini AI integration differentiating smart displays. Thread/Matter protocol support.",ri:"Smart home hardware is a small part of Alphabet overall",gr:"Medium-High",st:"Growing",ca:"Mega",src:[],vc:""},
+ {t:"AAPL",n:"Apple",th:"Wedbush #3 pick. HomeKit controls millions of smart home devices. Apple Intelligence embedded into HomePod and Siri. iPhone ecosystem lock-in makes Apple a natural smart home hub. Wedbush target $350.",ri:"Generally behind in AI vs Google/Microsoft; Siri lags",gr:"Medium",st:"Established",ca:"Mega",src:["Wedbush","Dan Ives"],vc:""},
+ {t:"HON",n:"Honeywell",th:"Dominant in smart building and commercial IoT. AI-powered thermostats, security, and energy management for commercial real estate.",ri:"Slow-moving industrial company; less pure-play AI exposure",gr:"Medium",st:"Established",ca:"Large",src:[],vc:""},
+ {t:"NXPI",n:"NXP Semiconductors",th:"Makes the microcontrollers and wireless chips inside smart home devices. Embedded in over 4B devices. As every object gets an IP address, NXP chips are the connective tissue.",ri:"Cyclical semiconductor; China revenue exposure",gr:"Medium-High",st:"Established",ca:"Large",src:[],vc:""},
+ {t:"ADI",n:"Analog Devices",th:"Analog and mixed-signal chips that interface between the physical world and digital systems — microphones, sensors, and power management inside smart home devices.",ri:"Cyclical; inventory corrections hit hard in 2023-2024",gr:"Medium-High",st:"Established",ca:"Large",src:[],vc:""},
+ {t:"SWKS",n:"Skyworks Solutions",th:"Wireless connectivity chips (Wi-Fi, Bluetooth, Zigbee) in smart home devices. Benefits from smart home device count expansion regardless of which platform wins.",ri:"Apple revenue concentration; IoT growth slower than expected",gr:"Medium",st:"Established",ca:"Mid",src:[],vc:""},
+ {t:"CSCO",n:"Cisco",th:"Network infrastructure underpins smart homes and smart buildings at scale. AI-powered network management tools. Home networking through Meraki grows with smart home density.",ri:"Slow-moving legacy company; losing data center switching share to Arista",gr:"Medium",st:"Established",ca:"Mega",src:[],vc:""},
+ {t:"TT",n:"Trane Technologies",th:"Smart HVAC and building systems with AI-driven energy optimization. AI thermostat and climate control systems are becoming standard in new construction. Strong commercial real estate presence.",ri:"Cyclical construction market; premium valuation",gr:"Medium-High",st:"Established",ca:"Large",src:[],vc:""},
+ {t:"ENPH",n:"Enphase Energy",th:"AI-powered home energy management systems. Smart solar + battery + EV charging orchestration. As homes become more electrified, Enphase's AI energy software becomes the brain.",ri:"Competition from Tesla Powerwall and SolarEdge; installer dependency",gr:"High",st:"Growing",ca:"Mid",src:["Analysts"],vc:""},
+ {t:"SNPS",n:"Synopsys",th:"Makes the EDA software tools used to design every chip inside smart home devices. As chip complexity grows with AI, Synopsys' design tools become more critical and expensive.",ri:"Ansys merger regulatory scrutiny; competition from Cadence",gr:"High",st:"Established",ca:"Large",src:["Analysts"],vc:""},
+ {t:"KEYS",n:"Keysight Technologies",th:"Makes test and measurement equipment for electronics manufacturers including smart home device makers. As AI-enabled devices proliferate, every manufacturer needs Keysight's testing tools.",ri:"Cyclical; dependent on electronics manufacturing capex",gr:"Medium-High",st:"Established",ca:"Large",src:[],vc:""},
+ {t:"ZBRA",n:"Zebra Technologies",th:"AI-powered tracking and automation for retail and warehouses. Smart home devices increasingly use Zebra's RFID and barcode tech for inventory and asset tracking.",ri:"Cyclical; B2B focus limits consumer smart home exposure",gr:"Medium-High",st:"Growing",ca:"Mid",src:[],vc:""},
+ {t:"ARLO",n:"Arlo Technologies",th:"AI-powered smart security cameras and home monitoring. Uses AI for person/package/animal detection. Subscription model growing. Pure-play smart home security.",ri:"Competition from Ring (Amazon) and Nest (Google); small cap",gr:"High",st:"Growing",ca:"Small",src:[],vc:""},
+ {t:"SMAR",n:"Smartsheet",th:"Work management platform increasingly used to manage smart building and IoT deployments. AI Copilot automating project workflows. Strong enterprise adoption.",ri:"Competition from Monday.com and Microsoft; moderate growth",gr:"Medium",st:"Growing",ca:"Mid",src:[],vc:""},
+]},
+{id:"health",lb:"AI Healthcare",ic:"🏥",co:"#ff4d8d",ds:"Fastest AI adoption growth rate of any sector at 36.8% CAGR. Drug discovery, surgical robots, precision medicine, diagnostics, and digital health.",
+stocks:[
+ {t:"ISRG",n:"Intuitive Surgical",th:"Dominant surgical robotics company. FDA cleared da Vinci 5 for 9 cardiac procedures in Jan 2026. Massive installed base creates razor/blade revenue model.",ri:"Very high valuation; hospital capex cycles slow adoption",gr:"High",st:"Established",ca:"Mega",src:["Analysts"],vc:""},
+ {t:"MDT",n:"Medtronic",th:"Hugo robotic surgery system cleared for urologic procedures. Also uses AI in cardiac monitoring, insulin delivery, and imaging.",ri:"Execution on Hugo slower than expected; heavy ISRG competition",gr:"Medium-High",st:"Growing",ca:"Large",src:[],vc:""},
+ {t:"TEM",n:"Tempus AI",th:"Precision medicine platform combining genetic, imaging, and clinical data with AI. Analysts project ~30% annual revenue growth. Backlog exceeds $1.1B. Collaborations with AstraZeneca, GSK, Merck.",ri:"Unprofitable with $245M trailing net loss; unproven at scale",gr:"Very High",st:"Early",ca:"Mid",src:["Analysts"],vc:""},
+ {t:"RXRX",n:"Recursion Pharmaceuticals",th:"AI-first drug discovery — trains models on billions of cellular images. NVIDIA's Jensen Huang is personally invested. JPMorgan upgraded. Cathie Wood holds major position.",ri:"Speculative; stock down 90%+ from peak; no approved drugs yet",gr:"Very High",st:"Early",ca:"Small",src:["Cathie Wood","JPMorgan"],vc:"NVIDIA invested directly"},
+ {t:"VEEV",n:"Veeva Systems",th:"Cloud software for pharma and biotech — CRM, clinical trials, regulatory submissions. AI making its software stickier as drug discovery accelerates.",ri:"Premium valuation; niche market already well penetrated",gr:"High",st:"Established",ca:"Large",src:[],vc:""},
+ {t:"LLY",n:"Eli Lilly",th:"Pharma giant collaborating with NVIDIA on a co-innovation lab using AI for drug discovery. Could dramatically accelerate its already strong GLP-1 pipeline.",ri:"High valuation; GLP-1 competition from Novo Nordisk",gr:"High",st:"Established",ca:"Mega",src:["Analysts"],vc:""},
+ {t:"DOCS",n:"Doximity",th:"Medical professional network — 80%+ of US physicians use Doximity. AI tools for clinical documentation saving doctors hours per day.",ri:"Growth decelerated; limited international expansion",gr:"Medium-High",st:"Established",ca:"Mid",src:[],vc:""},
+ {t:"IQVIA",n:"IQVIA Holdings",th:"Clinical research and healthcare data analytics. AI improving clinical trial design and patient recruitment. Manages data on 1B+ patient records.",ri:"Data privacy regulation; pharma capex cuts during downturns",gr:"Medium-High",st:"Established",ca:"Large",src:[],vc:""},
+ {t:"GMED",n:"Globus Medical",th:"AI-powered robotic surgery for spine and orthopedic procedures. EXCELSIUS robot gaining market share from ISRG in orthopedics. Acquired NuVasive for scale.",ri:"Post-merger integration risk; ISRG competition",gr:"High",st:"Growing",ca:"Mid",src:["Analysts"],vc:""},
+ {t:"DXCM",n:"DexCom",th:"Continuous glucose monitoring devices generating real-time biometric data. AI transforming this data into predictive health insights. As AI health monitoring scales, DexCom's data becomes increasingly valuable.",ri:"Abbott competition; insurance coverage uncertainty",gr:"High",st:"Growing",ca:"Large",src:["Analysts"],vc:""},
+ {t:"TDOC",n:"Teladoc Health",th:"AI-powered telehealth platform. BetterHelp mental health + primary care powered by AI triage and diagnostics. AI reducing cost per consultation. Massive addressable market.",ri:"Massive goodwill impairments; profitability concerns; competition",gr:"High",st:"Growing",ca:"Mid",src:[],vc:""},
+ {t:"ACCD",n:"Accolade",th:"AI-powered health navigation and advocacy platform for employers. Helps employees navigate complex healthcare decisions using AI. B2B recurring revenue model.",ri:"Small cap; unprofitable; depends on employer healthcare spending",gr:"Very High",st:"Early",ca:"Small",src:[],vc:""},
+ {t:"PRAXIS",n:"Praxis Precision Medicine",th:"Applying AI and precision medicine to central nervous system disorders. Novel AI drug discovery platform targeting epilepsy and other neurological diseases.",ri:"Clinical stage; no revenue; binary clinical trial risk",gr:"Very High",st:"Early",ca:"Small",src:[],vc:""},
+ {t:"EVH",n:"Evolent Health",th:"AI-powered value-based care management. Uses AI to predict which patients will need expensive procedures and intervenes proactively. Reduces costs for health plans and employers.",ri:"Regulatory risk; customer concentration; unprofitable",gr:"High",st:"Growing",ca:"Small",src:[],vc:""},
+ {t:"NVCR",n:"NovoCure",th:"AI-enhanced tumor-treating fields (TTFields) therapy for cancer. AI optimizing treatment protocols. Expanding indications beyond glioblastoma.",ri:"Reimbursement uncertainty; clinical execution risk",gr:"High",st:"Growing",ca:"Mid",src:[],vc:""},
+]},
+{id:"cyber",lb:"Cybersecurity",ic:"🔐",co:"#ffd700",ds:"AI makes cyberattacks faster and more sophisticated — AI is the only viable defense. Global AI security spending up 44% YoY. Non-discretionary spending.",
+stocks:[
+ {t:"CRWD",n:"CrowdStrike",th:"Wedbush #5 pick for 2026. Leading AI-native security platform. Falcon Flex ARR hit $1.69B, up 120% YoY. $20B ARR target by FY2036.",ri:"Recovering from 2024 global outage; 88x forward P/E",gr:"High",st:"Established",ca:"Large",src:["Wedbush","Dan Ives"],vc:""},
+ {t:"PANW",n:"Palo Alto Networks",th:"Platformization strategy — sell one integrated AI security platform replacing many point tools. Strong AI-generated threat detection and response automation.",ri:"Growth decelerated as it pushed platformization; heavy competition",gr:"High",st:"Established",ca:"Mega",src:["Analysts"],vc:""},
+ {t:"S",n:"SentinelOne",th:"AI-native cybersecurity platform automating threat detection. Purple AI Athena reasons through security problems at machine speed. P/S is a steep discount to CRWD and PANW.",ri:"Smaller than CRWD/PANW; still unprofitable; harder to win enterprise deals",gr:"High",st:"Growing",ca:"Mid",src:["Analysts"],vc:""},
+ {t:"ZS",n:"Zscaler",th:"Cloud-native zero-trust security. AI-powered threat detection across 500B+ daily transactions. As enterprises move to cloud, traditional firewalls fail — Zscaler is the replacement.",ri:"High valuation; complex enterprise sales cycles",gr:"High",st:"Established",ca:"Large",src:[],vc:""},
+ {t:"FTNT",n:"Fortinet",th:"AI-powered network security. Lower valuation than peers with strong free cash flow. Benefits from smaller businesses needing AI security that can't afford CrowdStrike pricing.",ri:"Slower cloud transition than peers; hardware refresh cycle dependency",gr:"Medium-High",st:"Established",ca:"Large",src:[],vc:""},
+ {t:"OKTA",n:"Okta",th:"Identity and access management — the front door for AI systems accessing enterprise data. As AI agents need to authenticate securely, Okta's identity platform becomes critical.",ri:"Security breach in 2023 damaged trust; competition from Microsoft Entra",gr:"Medium-High",st:"Growing",ca:"Mid",src:[],vc:""},
+ {t:"NET",n:"Cloudflare",th:"Global security and network infrastructure. AI agents running on Cloudflare's edge can be protected and monitored natively. Workers AI growing platform for AI inference with built-in security.",ri:"Still unprofitable; competing with AWS/Azure on edge computing",gr:"High",st:"Growing",ca:"Large",src:["Analysts"],vc:""},
+ {t:"CYBR",n:"CyberArk Software",th:"Privileged access management and identity security. As AI agents need privileged access to systems, CyberArk is the solution. Recently acquired Conjur Secrets for AI agent authentication.",ri:"Integration risk from acquisitions; high valuation",gr:"High",st:"Growing",ca:"Large",src:["Goldman Sachs"],vc:""},
+ {t:"QLYS",n:"Qualys",th:"Cloud-based vulnerability management and security compliance. AI-enhanced scanning that identifies vulnerabilities before attackers do. Strong free cash flow, consistent dividend.",ri:"Competition from CrowdStrike and Tenable; slower growth",gr:"Medium-High",st:"Established",ca:"Mid",src:[],vc:""},
+ {t:"TENB",n:"Tenable Holdings",th:"Vulnerability management platform. AI-powered exposure management helps enterprises understand their attack surface. Growing demand as AI expands attack surfaces.",ri:"Competition from Qualys and CrowdStrike; moderate growth pace",gr:"Medium-High",st:"Growing",ca:"Mid",src:["Analysts"],vc:""},
+ {t:"RPD",n:"Rapid7",th:"AI-powered threat detection and incident response. Managed detection and response (MDR) service growing fast. Smaller cap with high upside if platform consolidation plays out.",ri:"Competition from CRWD and PANW; high customer churn risk",gr:"High",st:"Growing",ca:"Small",src:[],vc:""},
+ {t:"VRNS",n:"Varonis Systems",th:"Data security and analytics — AI tracking who accesses what data inside enterprises. As AI systems access more sensitive data, Varonis becomes essential for governance.",ri:"Transition to SaaS model creates near-term revenue headwinds",gr:"High",st:"Growing",ca:"Mid",src:["Analysts"],vc:""},
+ {t:"DDOG",n:"Datadog (Security)",th:"Expanding into cloud security and application security testing alongside its monitoring platform. AI security posture management is a growing product line.",ri:"Security is not Datadog's core — faces specialists for each security product",gr:"High",st:"Growing",ca:"Large",src:[],vc:""},
+ {t:"AKAM",n:"Akamai Technologies",th:"CDN giant adding AI-powered edge security. DDoS protection and bot management enhanced by AI. Consistent free cash flow with AI upside.",ri:"Slower growth than pure-play security companies",gr:"Medium-High",st:"Established",ca:"Large",src:["Motley Fool"],vc:""},
+ {t:"SAIL",n:"SailPoint Technologies",th:"AI-powered identity governance and administration. Manages who has access to what across thousands of employees and AI agents. Re-listed on Nasdaq in 2024.",ri:"Niche market; competition from Saviynt and IBM",gr:"High",st:"Growing",ca:"Mid",src:[],vc:""},
+]},
+{id:"robots",lb:"Robotics",ic:"🤖",co:"#ff8c42",ds:"Humanoid robots, warehouse automation, and industrial AI. Jensen Huang: 2026 is the 'ChatGPT moment for robotics.' Global robotics market growing to $124B.",
+stocks:[
+ {t:"TSLA",n:"Tesla Optimus",th:"Wedbush #4 AI pick. Optimus humanoid robot moving from demo to production. Tesla's advantage is AI training infrastructure and manufacturing scale. Deploying in own factories first.",ri:"Timeline uncertainty; robots are harder to deploy than autonomy software",gr:"Very High",st:"Early",ca:"Mega",src:["Wedbush"],vc:""},
+ {t:"ISRG",n:"Intuitive Surgical",th:"World's most commercially successful medical robot. Da Vinci 5 adds AI guidance, haptic feedback, and real-time analytics.",ri:"Premium valuation; hospital budget constraints",gr:"High",st:"Established",ca:"Mega",src:[],vc:""},
+ {t:"TER",n:"Teradyne",th:"Makes collaborative robots (cobots) for manufacturing. New US Operations Hub in Michigan for domestic manufacturing demand. Sequential growth Q4 2025.",ri:"Dependent on manufacturing capex cycles; Universal Robots unit slowing",gr:"Medium-High",st:"Growing",ca:"Mid",src:[],vc:""},
+ {t:"SYM",n:"Symbotic",th:"Builds AI-powered warehouse automation systems for Walmart. Software-defined robots that optimize warehouse operations in real time.",ri:"Customer concentration in Walmart; execution on rapid expansion",gr:"Very High",st:"Growing",ca:"Mid",src:[],vc:""},
+ {t:"NVDA",n:"NVIDIA Physical AI",th:"Rubin AI platform and Cosmos world foundation models are the OS for robotics. Jensen Huang said 'the ChatGPT moment for robotics is here' at CES 2026.",ri:"Robotics revenue minimal today vs. data center",gr:"Very High",st:"Early",ca:"Mega",src:["Wedbush"],vc:"a16z backed physical AI startups all use NVIDIA"},
+ {t:"BRZE",n:"Braze",th:"Customer engagement platform using AI to automate personalized messaging for robots and automation deployment teams. AI-powered lifecycle management for automation rollouts.",ri:"Competition from Salesforce and HubSpot; high valuation",gr:"High",st:"Growing",ca:"Mid",src:[],vc:""},
+ {t:"FANUY",n:"Fanuc ADR",th:"World's largest industrial robot maker used in automotive and electronics manufacturing globally. AI-enhanced robots that improve from experience on the factory floor.",ri:"Slow-growing legacy; Japanese company with FX exposure",gr:"Medium",st:"Established",ca:"Large",src:[],vc:""},
+ {t:"ABB",n:"ABB Robotics",th:"Major industrial robot and automation systems manufacturer. SoftBank agreed to acquire ABB's robotics division for $5.375B — validating its value.",ri:"Conglomerate discount; slower growth than pure-play robotics",gr:"Medium-High",st:"Established",ca:"Large",src:[],vc:""},
+ {t:"IRBT",n:"iRobot",th:"Consumer robotics company known for Roomba. AI-powered home robots for cleaning, lawn mowing, and monitoring. Amazon acquisition attempt blocked but partnership remains.",ri:"Amazon acquisition fell through; competition from Chinese robotics; losses",gr:"Medium",st:"Growing",ca:"Small",src:[],vc:""},
+ {t:"KUKA",n:"KUKA AG",th:"German industrial robotics leader. AI-powered manufacturing robots used in automotive, electronics, and consumer goods. Part of Chinese Midea Group but widely used globally.",ri:"Chinese ownership creates geopolitical risk for US/EU customers",gr:"Medium-High",st:"Growing",ca:"Mid",src:[],vc:""},
+ {t:"GOOG",n:"Google DeepMind Robotics",th:"DeepMind's Gemini Robotics is training generalist robots using AI. Partnership with Boston Dynamics. If Google deploys robots at scale, it could be the biggest physical AI story.",ri:"Speculative; early stage; commercial deployment is years away",gr:"Very High",st:"Early",ca:"Mega",src:["Analysts"],vc:"Alphabet internal project — no pure play access"},
+ {t:"VICR",n:"Vicor Corporation",th:"Makes power delivery chips for AI servers and increasingly for robots and autonomous systems. AI systems need high-efficiency power — Vicor's modular power system is the solution.",ri:"Small cap; niche market; customer concentration",gr:"High",st:"Growing",ca:"Small",src:[],vc:""},
+ {t:"RMBS",n:"Rambus",th:"Makes semiconductor interface IP and chips that accelerate memory in AI systems and robotics. AI memory bottleneck is a real problem — Rambus solutions are gaining traction.",ri:"IP licensing model is slow-growing; competition from Synopsys",gr:"Medium-High",st:"Growing",ca:"Small",src:[],vc:""},
+ {t:"ONTO",n:"Onto Innovation",th:"Makes inspection and process control systems for semiconductor manufacturing, used in AI chip fabs. Benefits from TSMC and Samsung fab expansions for AI chips.",ri:"Concentrated in semiconductor equipment market; cyclical",gr:"High",st:"Growing",ca:"Small",src:[],vc:""},
+ {t:"FLIR",n:"Teledyne FLIR",th:"AI-enhanced thermal imaging and sensing used in autonomous vehicles, industrial robots, and defense applications. AI allows FLIR cameras to identify and track objects automatically.",ri:"Defense spending cycles; competition from Chinese thermal imaging",gr:"Medium-High",st:"Established",ca:"Large",src:[],vc:""},
+]},
+{id:"fintech",lb:"AI Fintech",ic:"💰",co:"#4ade80",ds:"AI transforming trading, fraud detection, credit scoring, financial planning, and banking. AI spending in financial services exceeded $20B in 2025.",
+stocks:[
+ {t:"PLTR",n:"Palantir",th:"Used by hedge funds, banks, and governments for AI-driven analytics. AIP platform adopted by financial institutions for risk management. Already profitable with 70% revenue growth.",ri:"Valuation at 150-200x forward earnings leaves no margin for error",gr:"Very High",st:"Growing",ca:"Large",src:["Wedbush","Dan Ives"],vc:""},
+ {t:"IBKR",n:"Interactive Brokers",th:"Most technologically advanced retail and institutional broker. AI-powered trading tools, portfolio optimization, and risk management. High operating leverage with margins above 60%.",ri:"Market volatility risk; competition from zero-commission brokers",gr:"Medium-High",st:"Established",ca:"Large",src:[],vc:""},
+ {t:"COIN",n:"Coinbase",th:"AI and crypto are converging — blockchain used for AI payments. Largest US crypto exchange benefits from AI agent economies using crypto for micropayments. Base L2 network growing fast.",ri:"Regulatory uncertainty; highly volatile with crypto markets",gr:"High",st:"Growing",ca:"Large",src:[],vc:"a16z is one of the most bullish Coinbase investors"},
+ {t:"HOOD",n:"Robinhood",th:"Embedding AI into retail investing with Gold AI assistant for research, portfolio analysis, and trade ideas. Reddit-loved stock targeting the AI-comfortable generation.",ri:"Heavy competition; regulatory scrutiny; younger users have smaller accounts",gr:"High",st:"Growing",ca:"Mid",src:["Reddit"],vc:""},
+ {t:"SOFI",n:"SoFi Technologies",th:"Reddit-loved AI fintech. AI-powered personal finance platform growing rapidly. Banking charter lets SoFi offer products at lower cost. Named to biggest winners of 2026 list.",ri:"High competition in banking; regulatory risk; unprofitable",gr:"High",st:"Growing",ca:"Mid",src:["Reddit"],vc:""},
+ {t:"V",n:"Visa",th:"AI-powered fraud detection across billions of transactions. AI improving authorization rates while catching real fraud. Building AI infrastructure for financial analytics.",ri:"Slow-growing relative to AI pure plays; regulatory/antitrust risks",gr:"Medium",st:"Established",ca:"Mega",src:[],vc:""},
+ {t:"MSCI",n:"MSCI",th:"Provides ESG ratings, risk analytics, and index data to institutional investors. AI enhancing ability to process alternative data for risk models. Every major hedge fund uses MSCI.",ri:"Slow-growing; regulation of ESG ratings could affect business",gr:"Medium",st:"Established",ca:"Large",src:[],vc:""},
+ {t:"AFRM",n:"Affirm Holdings",th:"AI-powered buy-now-pay-later platform. Machine learning credit models outperform traditional credit scoring. Growing rapidly through Shopify, Amazon, and Apple Pay Later partnerships.",ri:"Rising interest rates hurt BNPL economics; competition from banks",gr:"High",st:"Growing",ca:"Mid",src:[],vc:""},
+ {t:"UPST",n:"Upstart Holdings",th:"AI lending platform replacing FICO scores. Uses 1,000+ variables to assess credit risk better than traditional banks. Partnerships with banks and credit unions growing.",ri:"Highly sensitive to interest rates; volatile revenue; small cap",gr:"Very High",st:"Growing",ca:"Small",src:["Reddit"],vc:""},
+ {t:"NRDS",n:"NerdWallet",th:"AI-powered personal finance comparison platform. Uses AI to match consumers with the best financial products. Growing subscription and lead generation revenue.",ri:"Dependent on financial product advertising; competition from Bankrate",gr:"High",st:"Growing",ca:"Small",src:[],vc:""},
+ {t:"GS",n:"Goldman Sachs",th:"Investing heavily in AI for trading, investment banking, and wealth management. Marcus AI-powered banking platform. Goldman's AI infrastructure investment is accelerating.",ri:"Banking regulatory environment; trading revenue cyclicality",gr:"Medium-High",st:"Established",ca:"Mega",src:["Goldman Sachs"],vc:"Goldman Sachs Ventures actively investing in AI fintech"},
+ {t:"ICE",n:"Intercontinental Exchange",th:"AI-powered financial market infrastructure. Black Knight acquisition makes ICE the AI data provider for mortgage markets. AI-enhanced trading and clearing systems.",ri:"Integration complexity of Black Knight; regulatory scrutiny",gr:"Medium-High",st:"Established",ca:"Large",src:["Analysts"],vc:""},
+ {t:"TOST",n:"Toast",th:"AI-powered restaurant management platform. AI optimizing orders, staffing, and inventory for restaurants. Growing from POS to full-stack AI restaurant operating system.",ri:"Concentrated in restaurant industry; competition from Square",gr:"High",st:"Growing",ca:"Mid",src:["Analysts"],vc:""},
+ {t:"BILL",n:"Bill Holdings",th:"AI-powered accounts payable and receivable automation for SMBs. AI processing invoices, flagging anomalies, and predicting cash flows. Strong embedded network effect.",ri:"Competition from Intuit and banks; SMB customer concentration",gr:"High",st:"Growing",ca:"Mid",src:[],vc:""},
+ {t:"NU",n:"Nu Holdings (Nubank)",th:"AI-first digital bank with 100M+ customers in Latin America. AI-powered credit scoring and fraud detection. Fastest growing bank in history. Warren Buffett is an investor.",ri:"Latam macro risk; credit cycle exposure; regulatory risk",gr:"Very High",st:"Growing",ca:"Large",src:["Analysts"],vc:"Buffett/Berkshire invested; Sequoia backed early"},
+]},
+{id:"energy",lb:"Energy & Grid",ic:"⚡",co:"#39ff14",ds:"AI data centers need unprecedented power. Mag 7 deploying $527B in AI/data center capex in FY2026. Global data center infrastructure approaching $1T by 2030. Energy is the sleeper AI trade.",
+stocks:[
+ {t:"CEG",n:"Constellation Energy",th:"Largest US nuclear fleet. Microsoft signed 20-year deal to restart Three Mile Island. Nuclear always-on profile uniquely suited for hyperscale data centers.",ri:"Nuclear restart capex; regulatory risk; public perception",gr:"High",st:"Growing",ca:"Large",src:["Reddit","Analysts"],vc:""},
+ {t:"VST",n:"Vistra Energy",th:"Nuclear and natural gas power winning hyperscaler contracts. AI data centers want 24/7 reliable, carbon-free power. Stock dramatically re-rated on AI power thesis.",ri:"Debt load; regulatory risk; concentrated customers",gr:"High",st:"Growing",ca:"Large",src:["Reddit"],vc:""},
+ {t:"NEE",n:"NextEra Energy",th:"America's largest renewable energy producer. AI data center demand is a massive new customer class for electricity. Building wind, solar, and battery storage at scale.",ri:"Interest rate sensitive; regulated utility; slower growth than tech",gr:"Medium-High",st:"Established",ca:"Mega",src:[],vc:""},
+ {t:"ETN",n:"Eaton Corporation",th:"Makes electrical components for data centers — power distribution, UPS, circuit breakers. Completed $9.5B Boyd Thermal acquisition for liquid cooling. Grid-to-chip infrastructure.",ri:"Valuation already elevated; industrial cyclicality",gr:"High",st:"Established",ca:"Large",src:["Analysts"],vc:""},
+ {t:"FSLR",n:"First Solar",th:"Largest US solar panel manufacturer. AI data centers increasingly signing direct power purchase agreements with solar providers. US manufacturing advantage matters.",ri:"Policy risk from changing administration; panel oversupply from China",gr:"Medium-High",st:"Growing",ca:"Large",src:[],vc:""},
+ {t:"IREN",n:"Iris Energy",th:"Reddit AI energy infrastructure pick. Owns and operates GPU computing data centers. Pivoted from Bitcoin mining to AI compute. Undervalued vs peers on per-GPU basis.",ri:"Execution risk; high capex; still early revenue",gr:"Very High",st:"Early",ca:"Small",src:["Reddit"],vc:""},
+ {t:"APLD",n:"Applied Digital",th:"Reddit AI energy infrastructure pick. Builds and operates data centers for AI workloads. Contracts with hyperscalers. Low cost power advantage.",ri:"Capital intensive; customer concentration; volatile",gr:"Very High",st:"Early",ca:"Small",src:["Reddit"],vc:""},
+ {t:"OKLO",n:"Oklo",th:"Small modular nuclear reactor startup backed by Sam Altman. Tiny, fast-deploy nuclear plants specifically designed to power AI data centers. If SMRs work, this is the long-term AI power solution.",ri:"Pre-revenue; technology unproven at scale; regulatory approvals years away",gr:"Very High",st:"Early",ca:"Small",src:["Analysts"],vc:"Sam Altman is chairman; OpenAI connection is narrative catalyst"},
+ {t:"NLR",n:"VanEck Uranium+Nuclear ETF",th:"Basket of uranium producers and nuclear power companies. AI data center demand is reviving the nuclear industry. Broader exposure than individual nuclear stocks.",ri:"ETF expense ratio; uranium price volatility; regulatory risk",gr:"High",st:"Growing",ca:"Mid",src:[],vc:""},
+ {t:"CCJ",n:"Cameco Corporation",th:"World's largest publicly traded uranium producer. As nuclear power revives to power AI data centers, uranium demand and prices rise. Cameco is the primary beneficiary.",ri:"Uranium price cyclicality; production disruptions; geopolitical risk",gr:"High",st:"Growing",ca:"Large",src:["Analysts"],vc:""},
+ {t:"GEV",n:"GE Vernova",th:"Makes power generation equipment and grid modernization infrastructure. AI data center buildout requires massive grid upgrades. GEV's gas turbines and grid hardware are in high demand.",ri:"Integration risk as GE spin-off; cyclical utility capex",gr:"High",st:"Growing",ca:"Large",src:["Analysts"],vc:""},
+ {t:"AMRC",n:"Ameresco",th:"AI-powered energy efficiency solutions for commercial and government buildings. Uses AI to identify and implement energy savings. Benefits from both AI power demand and energy efficiency mandates.",ri:"Dependent on government contracts; interest rate sensitive financing",gr:"Medium-High",st:"Growing",ca:"Small",src:[],vc:""},
+ {t:"FLNC",n:"Fluence Energy",th:"Motley Fool under-the-radar pick. AI-optimized battery storage systems for grid-scale energy storage. As AI data centers need backup power, Fluence's storage systems become critical.",ri:"Competition from Tesla Megapack; unprofitable; project-based revenue",gr:"High",st:"Growing",ca:"Small",src:["Motley Fool"],vc:"Backed by Siemens and AES"},
+ {t:"CWEN",n:"Clearway Energy",th:"Renewable energy REIT. Owns and operates wind, solar, and battery storage assets. Long-term contracts with AI data centers are a growing segment of its power purchase agreements.",ri:"Interest rate sensitivity as a REIT; merchant power price risk",gr:"Medium-High",st:"Established",ca:"Mid",src:[],vc:""},
+ {t:"ARRY",n:"Array Technologies",th:"Makes solar panel tracking systems that improve energy output. AI-optimized trackers that follow the sun more precisely. As more solar is built for AI data centers, Array benefits.",ri:"Competition from Nextracker; dependent on solar installation growth",gr:"High",st:"Growing",ca:"Mid",src:[],vc:""},
+]},
+];
+
+// ═══════════ STORAGE ═══════════════════════════════════
+const WK="ai_hub_v4",NK="ai_hub_nf_v2",AK="ai_hub_ak_v1";
+const getAK=()=>localStorage.getItem(AK)||"";
+const setAK=(k)=>localStorage.setItem(AK,k.trim());
+const lWL=()=>{try{return JSON.parse(localStorage.getItem(WK))||{};}catch{return{};}};
+const sWL=(w)=>{try{localStorage.setItem(WK,JSON.stringify(w));}catch{}};
+const lNF=()=>{try{return JSON.parse(localStorage.getItem(NK))||[];}catch{return[];}};
+const sNF=(n)=>{try{localStorage.setItem(NK,JSON.stringify(n));}catch{}};
+
+// ═══════════ API ════════════════════════════════════════
+// Price data via Claude web_search — no external stock API needed,
+// no CORS issues, works from any browser on any host.
+
+// fetchPrices: lightweight price check using Claude web_search
+// Returns price + day change for a list of tickers.
+// Results are cached in sessionStorage for 10 min to save API calls.
+const PRICE_CACHE_KEY="ai_hub_price_cache";
+function getPriceCache(){try{const c=JSON.parse(sessionStorage.getItem(PRICE_CACHE_KEY)||"{}");const now=Date.now();return Object.fromEntries(Object.entries(c).filter(([,v])=>now-v.ts<600000));}catch{return{};}}
+function setPriceCache(data){try{const existing=getPriceCache();sessionStorage.setItem(PRICE_CACHE_KEY,JSON.stringify({...existing,...data}));}catch{}}
+
+async function fetchPrices(tickers){
+  const cache=getPriceCache();
+  const needed=tickers.filter(t=>!cache[t]);
+  const out={...Object.fromEntries(tickers.filter(t=>cache[t]).map(t=>[t,cache[t]]))};
+  if(needed.length===0)return out;
+  // Batch up to 8 tickers per Claude call to stay efficient
+  const batches=[];
+  for(let i=0;i<needed.length;i+=8)batches.push(needed.slice(i,i+8));
+  await Promise.all(batches.map(async batch=>{
+    try{
+      const prompt=`Use web_search to find the current stock price and today's percentage change for these tickers: ${batch.join(", ")}. Return ONLY a JSON object like: {"NVDA":{"price":875.50,"pct":1.23},"AAPL":{"price":213.40,"pct":-0.45}}. Use the most recent market price available. No other text.`;
+      const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":getAK(),"anthropic-dangerous-direct-browser-access":"true","anthropic-version":"2023-06-01"},
+        body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:500,
+          tools:[{type:"web_search_20250305",name:"web_search"}],
+          system:"You are a financial data assistant. Return only valid JSON. No markdown fences, no explanation.",
+          messages:[{role:"user",content:prompt}]})});
+      const d=await r.json();
+      const text=d.content?.filter(b=>b.type==="text").map(b=>b.text).join("")||"";
+      const clean=text.replace(/```json|```/g,"").trim();
+      const parsed=JSON.parse(clean);
+      const toCache={};
+      Object.entries(parsed).forEach(([t,v])=>{
+        if(v&&v.price){
+          out[t]={price:v.price,pct:v.pct||0,spark:[]};
+          toCache[t]={price:v.price,pct:v.pct||0,spark:[],ts:Date.now()};
+        }
+      });
+      setPriceCache(toCache);
+    }catch{}
+  }));
+  return out;
+}
+
+// yahooFull: get detailed fundamentals via Claude web_search
+// Used by AI Scorer and Head-to-Head in the Toolkit
+async function yahooFull(ticker){
+  try{
+    const prompt=`Use web_search to find current financial data for stock ticker ${ticker}. Search for "${ticker} stock price PE ratio revenue growth" and "${ticker} stock fundamentals beta 52 week". Return ONLY this JSON object with real current values (use null if not found):
+{"name":"<company name>","price":<current price>,"change":<day change as decimal e.g. 0.012>,"pe":<trailing PE>,"fwdPe":<forward PE>,"peg":<PEG ratio>,"ps":<price to sales>,"revGrowth":<revenue growth as decimal e.g. 0.23>,"grossMargin":<gross margin as decimal>,"operatingMargin":<operating margin decimal>,"debtToEquity":<debt to equity ratio>,"targetPrice":<analyst consensus price target>,"beta":<beta>,"week52High":<52 week high>,"week52Low":<52 week low>,"recommendation":"buy|hold|sell|strongBuy|strongSell"}
+No markdown. No extra text. Only the JSON.`;
+    const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":getAK(),"anthropic-dangerous-direct-browser-access":"true","anthropic-version":"2023-06-01"},
+      body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:600,
+        tools:[{type:"web_search_20250305",name:"web_search"}],
+        system:"You are a financial data assistant. Use web search to find real, current stock data. Return only valid JSON. No markdown, no explanation.",
+        messages:[{role:"user",content:prompt}]})});
+    const d=await r.json();
+    const text=d.content?.filter(b=>b.type==="text").map(b=>b.text).join("")||"";
+    const clean=text.replace(/```json|```/g,"").trim();
+    const parsed=JSON.parse(clean);
+    if(!parsed||!parsed.price)return null;
+    return parsed;
+  }catch{return null;}
+}
+async function claude(prompt,sys){
+  const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":getAK(),"anthropic-dangerous-direct-browser-access":"true","anthropic-version":"2023-06-01"},
+    body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,
+      system:sys||"You are a sharp equity analyst specializing in AI stocks. Be concise and data-driven. No markdown, no asterisks.",
+      messages:[{role:"user",content:prompt}]})});
+  const d=await r.json();return d.content?.[0]?.text||"";
+}
+function fv(v,t){
+  if(v==null||isNaN(v))return"—";
+  if(t==="pct")return`${(v*100).toFixed(1)}%`;
+  if(t==="$")return`$${v.toFixed(2)}`;
+  if(t==="ratio")return v.toFixed(2);
+  return v;
+}
+
+// ═══════════ UI ATOMS ═══════════════════════════════════
+function Spark({data,color}){
+  if(!data||data.length<2)return null;
+  const w=38,h=14,mn=Math.min(...data),mx=Math.max(...data),rng=mx-mn||1;
+  const pts=data.map((v,i)=>`${i/(data.length-1)*w},${h-(v-mn)/rng*h}`).join(" ");
+  return React.createElement("svg",{width:w,height:h,style:{overflow:"visible",flexShrink:0}},
+    React.createElement("polyline",{points:pts,fill:"none",stroke:color,strokeWidth:"1.5",strokeLinejoin:"round"}));
+}
+function Bar({v,color}){
+  const cl=color||(v>=70?C.gr:v>=45?C.go:C.re);
+  return React.createElement("div",{style:{height:5,background:C.b,borderRadius:3,overflow:"hidden",marginTop:3}},
+    React.createElement("div",{style:{height:"100%",width:`${Math.min(100,Math.max(0,v))}%`,background:cl,borderRadius:3,transition:"width 0.5s"}}));
+}
+function Pill({children,color,xs}){
+  return React.createElement("span",{style:{fontSize:xs?7:9,padding:xs?"1px 4px":"2px 6px",borderRadius:4,border:`1px solid ${color}40`,color,background:`${color}12`,whiteSpace:"nowrap"}},children);
+}
+function Btn({children,onClick,disabled,color=C.ac,small,full,style={}}){
+  return React.createElement("button",{onClick,disabled,style:{padding:small?"5px 10px":full?"10px 0":"8px 14px",width:full?"100%":"auto",borderRadius:7,border:`1px solid ${color}60`,background:disabled?`${color}08`:`${color}18`,color:disabled?C.mu:color,fontSize:small?10:12,cursor:disabled?"not-allowed":"pointer",...style}},children);
+}
+function Inp({value,onChange,placeholder,style={},multi}){
+  const base={background:C.bg,border:`1px solid ${C.b}`,borderRadius:7,color:C.tx,fontSize:12,padding:"8px 10px",outline:"none"};
+  if(multi)return React.createElement("textarea",{value,onChange:ex=>onChange(ex.target.value),placeholder,style:{...base,width:"100%",boxSizing:"border-box",minHeight:55,...style}});
+  return React.createElement("input",{value,onChange:ex=>onChange(ex.target.value),placeholder,style:{...base,...style}});
+}
+function Spin({label="Analyzing…"}){
+  return React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,color:C.mu,fontSize:11,padding:"12px 0"}},
+    React.createElement("div",{style:{width:13,height:13,border:`2px solid ${C.b}`,borderTop:`2px solid ${C.ac}`,borderRadius:"50%",animation:"spin 0.8s linear infinite"}}),label);
+}
+function MR({label,value,type,bench,inv}){
+  let dot=C.mu;
+  if(bench!=null&&value!=null)dot=(inv?value<bench:value>bench)?C.gr:C.re;
+  return React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:`1px solid ${C.b}`}},
+    React.createElement("span",{style:{fontSize:11,color:C.di}},label),
+    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
+      bench!=null&&React.createElement("span",{style:{width:6,height:6,borderRadius:"50%",background:dot,display:"inline-block"}}),
+      React.createElement("span",{style:{fontSize:11,color:C.tx}},fv(value,type))));
+}
+function RRBlock({price,beta,week52High,week52Low,targetPrice,fwdPe,revGrowth}){
+  if(!price)return null;
+  let score=50;
+  const from52Low=week52Low?((price-week52Low)/week52Low)*100:null;
+  const from52High=week52High?((week52High-price)/week52High)*100:null;
+  const upToTarget=targetPrice?((targetPrice-price)/price)*100:null;
+  if(from52Low!=null){if(from52Low<20)score+=10;else if(from52Low>80)score-=10;}
+  if(from52High!=null){if(from52High>30)score+=8;else if(from52High<10)score-=8;}
+  if(revGrowth!=null){if(revGrowth>0.20)score+=12;else if(revGrowth>0.10)score+=6;else if(revGrowth<0)score-=15;}
+  if(fwdPe!=null){if(fwdPe<25)score+=8;else if(fwdPe>80)score-=10;}
+  if(beta!=null){if(beta>2.5)score-=5;else if(beta<1)score+=5;}
+  score=Math.max(10,Math.min(90,score));
+  const bear=beta?`-${(price*(beta*0.12)).toFixed(0)}`:null;
+  const base=upToTarget?`+${upToTarget.toFixed(1)}%`:null;
+  const bull=upToTarget?`+${(upToTarget*1.4).toFixed(1)}%`:null;
+  const rc=score>=65?C.gr:score>=45?C.go:C.re;
+  return React.createElement("div",{style:{background:`${rc}08`,border:`1px solid ${rc}25`,borderRadius:8,padding:"9px 11px",marginTop:7}},
+    React.createElement("div",{style:{fontSize:8,color:rc,letterSpacing:2,marginBottom:7}},"RISK / REWARD"),
+    React.createElement("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:4}},
+      React.createElement("span",{style:{fontSize:10,color:C.di}},"Win Probability"),
+      React.createElement("span",{style:{fontSize:12,fontWeight:700,color:rc}},`${score}%`)),
+    React.createElement(Bar,{v:score,color:rc}),
+    React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:5,marginTop:8}},
+      [{l:"BEAR",v:bear,c:C.re},{l:"BASE",v:base,c:C.go},{l:"BULL",v:bull,c:C.gr}].map(({l,v,c})=>
+        React.createElement("div",{key:l,style:{textAlign:"center",background:C.bg,borderRadius:5,padding:"5px 3px",border:`1px solid ${c}25`}},
+          React.createElement("div",{style:{fontSize:7,color:c,marginBottom:1}},l),
+          React.createElement("div",{style:{fontSize:10,fontWeight:700,color:c}},v||"—"))
+      )
+    )
+  );
+}
+
+// ═══════════ GUIDE ══════════════════════════════════════
+function Guide({wl,setWl,prices,setPrices,goToolkit,notifications,setNotifications}){
+  const [tab,setTab]=useState("sectors");
+  const [si,setSi]=useState(0);
+  const [open,setOpen]=useState(null);
+  const [noteInp,setNoteInp]=useState({});
+  const [srch,setSrch]=useState("");
+  const [loading,setLoading]=useState(false);
+  const [err,setErr]=useState(false);
+  const [lastUp,setLastUp]=useState(null);
+  const [ld,setLd]=useState({});
+  const [showNf,setShowNf]=useState(false);
+  const scrollRef=useRef(null);
+  const sector=SECTORS[si];
+  const allStocks=SECTORS.flatMap(s=>s.stocks.map(st=>({...st,sColor:s.co,sLabel:s.lb})));
+  const wlStocks=allStocks.filter(s=>wl[s.t]);
+  const unread=notifications.filter(n=>!n.read).length;
+
+  const refresh=useCallback(async(tickers)=>{
+    setLoading(true);setErr(false);
+    try{
+      const d=await fetchPrices(tickers);
+      if(!Object.keys(d).length)throw 0;
+      setPrices(p=>({...p,...d}));setLastUp(new Date());
+      const alerts=[];
+      tickers.forEach(t=>{
+        if(!d[t])return;
+        const prev=wl[t]?.lastPrice;
+        if(prev){const chg=((d[t].price-prev)/prev)*100;if(Math.abs(chg)>=5)alerts.push({id:Date.now()+t,ticker:t,msg:`${t}: ${chg>0?"▲":"▼"}${Math.abs(chg).toFixed(1)}% move`,color:chg>0?C.gr:C.re,ts:new Date().toLocaleTimeString(),read:false});}
+      });
+      if(alerts.length){const u=[...alerts,...notifications].slice(0,20);setNotifications(u);sNF(u);}
+    }catch{setErr(true);}
+    setLoading(false);
+  },[wl,notifications]);
+
+  const loadFull=useCallback(async(t)=>{
+    if(ld[t])return;
+    const d=await yahooFull(t);
+    if(d)setLd(prev=>({...prev,[t]:d}));
+  },[ld]);
+
+  useEffect(()=>{
+    refresh(sector.stocks.map(s=>s.t));
+    if(scrollRef.current)scrollRef.current.scrollTop=0;
+    setOpen(null);setSrch("");
+  },[si]);
+  useEffect(()=>{if(tab==="watchlist"&&wlStocks.length)refresh(wlStocks.map(s=>s.t));},[tab]);
+
+  const toggleWl=(t,price)=>{
+    const u={...wl};
+    if(u[t])delete u[t];
+    else u[t]={note:"",addedAt:new Date().toLocaleDateString(),addedPrice:price??null,lastPrice:price??null};
+    setWl(u);sWL(u);
+  };
+  const saveNote=(t)=>{
+    const u={...wl,[t]:{...wl[t],note:noteInp[t]??wl[t]?.note??""}};
+    setWl(u);sWL(u);
+  };
+  const shown=sector.stocks.filter(s=>!srch||s.t.toLowerCase().includes(srch.toLowerCase())||s.n.toLowerCase().includes(srch.toLowerCase()));
+
+  return React.createElement("div",{style:{display:"flex",flexDirection:"column",height:"100%"}},
+    // sub tabs
+    React.createElement("div",{style:{display:"flex",gap:4,padding:"7px 12px",borderBottom:`1px solid ${C.b}`,background:C.s1,flexWrap:"wrap",alignItems:"center",flexShrink:0}},
+      [["sectors","📊 Sectors"],["watchlist",`⭐ Watchlist (${Object.keys(wl).length})`]].map(([id,lb])=>
+        React.createElement("button",{key:id,onClick:()=>{setTab(id);setOpen(null);},style:{padding:"5px 11px",borderRadius:6,border:`1px solid ${tab===id?C.ac:C.b}`,background:tab===id?`${C.ac}15`:"transparent",color:tab===id?C.ac:C.mu,fontSize:11,cursor:"pointer"}},lb)
+      ),
+      React.createElement("div",{style:{marginLeft:"auto",display:"flex",alignItems:"center",gap:6}},
+        lastUp&&React.createElement("span",{style:{fontSize:8,color:C.mu}},`${lastUp.toLocaleTimeString()}`),
+        React.createElement("button",{onClick:()=>setShowNf(v=>!v),style:{position:"relative",background:unread>0?`${C.re}15`:"transparent",border:`1px solid ${unread>0?C.re:C.b}`,borderRadius:6,padding:"4px 8px",color:unread>0?C.re:C.mu,fontSize:11,cursor:"pointer"}},`🔔${unread>0?` ${unread}`:""}`)
+      )
+    ),
+    // notification panel
+    showNf&&React.createElement("div",{style:{position:"absolute",top:108,right:10,left:10,background:C.s2,border:`1px solid ${C.b}`,borderRadius:10,zIndex:100,maxHeight:200,overflow:"auto",animation:"fadeIn 0.2s ease",boxShadow:"0 4px 20px rgba(0,0,0,0.5)"}},
+      React.createElement("div",{style:{padding:"8px 12px",borderBottom:`1px solid ${C.b}`,display:"flex",justifyContent:"space-between",alignItems:"center"}},
+        React.createElement("span",{style:{fontSize:9,color:C.go,letterSpacing:2}},"🔔 ALERTS"),
+        React.createElement("button",{onClick:()=>{const u=notifications.map(n=>({...n,read:true}));setNotifications(u);sNF(u);setShowNf(false);},style:{fontSize:10,color:C.mu,background:"transparent",border:"none",cursor:"pointer"}},"✓ Mark all read")
+      ),
+      notifications.length===0&&React.createElement("div",{style:{padding:"14px 12px",color:C.mu,fontSize:11,textAlign:"center"}},"No alerts yet. Fires when watchlist stocks move >5%."),
+      notifications.map(nf=>React.createElement("div",{key:nf.id,style:{padding:"7px 12px",borderBottom:`1px solid ${C.b}`,display:"flex",justifyContent:"space-between",background:nf.read?"transparent":`${nf.color}08`}},
+        React.createElement("div",null,React.createElement("div",{style:{fontSize:11,color:nf.color}},nf.msg),React.createElement("div",{style:{fontSize:8,color:C.mu,marginTop:1}},nf.ts)),
+        React.createElement("div",{style:{width:6,height:6,borderRadius:"50%",background:nf.read?"transparent":nf.color,marginTop:4,flexShrink:0}})
+      ))
+    ),
+    // SECTORS
+    tab==="sectors"&&React.createElement("div",{style:{display:"flex",flexDirection:"column",flex:1,minHeight:0}},
+      React.createElement("div",{style:{display:"flex",gap:5,padding:"7px 12px",overflowX:"auto",flexShrink:0,background:C.s1,WebkitOverflowScrolling:"touch"}},
+        SECTORS.map((s,i)=>React.createElement("button",{key:s.id,onClick:()=>setSi(i),
+          style:{padding:"4px 9px",borderRadius:6,border:`1px solid ${si===i?s.co:C.b}`,background:si===i?`${s.co}18`:"transparent",color:si===i?s.co:C.mu,fontSize:10,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}},
+          `${s.ic} ${s.lb}`))
+      ),
+      React.createElement("div",{style:{padding:"7px 12px",background:`linear-gradient(135deg,${sector.co}10 0%,transparent 70%)`,borderBottom:`1px solid ${sector.co}30`,flexShrink:0}},
+        React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}},
+          React.createElement("div",null,
+            React.createElement("div",{style:{fontSize:13,fontWeight:700,color:sector.co,marginBottom:2}},`${sector.ic} ${sector.lb}`),
+            React.createElement("div",{style:{fontSize:10,color:C.di,lineHeight:1.4}},sector.ds)
+          ),
+          React.createElement("div",{style:{display:"flex",gap:5,flexShrink:0}},
+            React.createElement(Inp,{value:srch,onChange:setSrch,placeholder:"Search…",style:{width:80,fontSize:10,padding:"5px 7px"}}),
+            React.createElement("button",{onClick:()=>refresh(sector.stocks.map(s=>s.t)),style:{padding:"5px 8px",background:`${C.ac}15`,border:`1px solid ${C.ac}40`,borderRadius:5,color:loading?C.mu:C.ac,fontSize:10,cursor:"pointer"}},loading?"⟳":"⟳")
+          )
+        ),
+        err&&React.createElement("div",{style:{fontSize:9,color:C.go,marginTop:3}},"⚠ Live prices & toolkit work at your github.io URL — not from local file://")
+      ),
+      React.createElement("div",{className:"sa",ref:scrollRef,style:{padding:"8px 12px",paddingBottom:24}},
+        shown.map(stock=>{
+          const isO=open===stock.t,inWl=!!wl[stock.t],pd=prices[stock.t],up=(pd?.pct??0)>=0,live=ld[stock.t];
+          return React.createElement("div",{key:stock.t,style:{border:`1px solid ${isO?sector.co+"60":C.b}`,borderRadius:9,background:isO?`${sector.co}08`:C.s1,marginBottom:7,overflow:"hidden"}},
+            React.createElement("div",{onClick:()=>{setOpen(isO?null:stock.t);if(!isO)loadFull(stock.t);},style:{display:"flex",alignItems:"center",padding:"9px 10px",cursor:"pointer",gap:7}},
+              React.createElement("div",{style:{background:`${sector.co}20`,border:`1px solid ${sector.co}40`,borderRadius:5,padding:"2px 6px",color:sector.co,fontSize:10,fontWeight:700,letterSpacing:0.8,minWidth:42,textAlign:"center",flexShrink:0}},stock.t),
+              React.createElement("div",{style:{flex:1,minWidth:0}},
+                React.createElement("div",{style:{fontWeight:600,fontSize:11,color:C.tx,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},stock.n),
+                React.createElement("div",{style:{display:"flex",gap:3,marginTop:2,flexWrap:"wrap"}},
+                  React.createElement(Pill,{color:GC[stock.gr]||C.mu},`↑${stock.gr}`),
+                  React.createElement(Pill,{color:SC[stock.st]||C.mu},stock.st),
+                  stock.src?.slice(0,2).map(s=>React.createElement(Pill,{key:s,color:SRC[s]||C.mu,xs:true},s))
+                )
+              ),
+              pd&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4,flexShrink:0}},
+                React.createElement(Spark,{data:pd.spark,color:up?C.gr:C.re}),
+                React.createElement("div",{style:{textAlign:"right",minWidth:50}},
+                  React.createElement("div",{style:{fontSize:11,color:C.tx,fontWeight:700}},`$${pd.price?.toFixed(2)}`),
+                  React.createElement("div",{style:{fontSize:9,color:up?C.gr:C.re}},`${up?"▲":"▼"}${Math.abs(pd.pct).toFixed(2)}%`)
+                )
+              ),
+              React.createElement("div",{style:{display:"flex",flexDirection:"column",alignItems:"center",gap:3,flexShrink:0}},
+                React.createElement("button",{onClick:ex=>{ex.stopPropagation();toggleWl(stock.t,pd?.price);},style:{background:inWl?`${C.go}20`:"transparent",border:`1px solid ${inWl?C.go:C.b}`,borderRadius:4,color:inWl?C.go:C.mu,fontSize:12,padding:"1px 5px",cursor:"pointer"}},inWl?"★":"☆"),
+                React.createElement("span",{style:{color:isO?sector.co:C.mu,fontSize:10,transform:isO?"rotate(180deg)":"none",display:"inline-block",transition:"transform 0.2s"}},"\u25be")
+              )
+            ),
+            isO&&React.createElement("div",{style:{padding:"0 10px 10px",borderTop:`1px solid ${sector.co}20`}},
+              React.createElement("div",{style:{paddingTop:8}},
+                stock.src?.length>0&&React.createElement("div",{style:{display:"flex",gap:4,flexWrap:"wrap",marginBottom:7}},
+                  React.createElement("span",{style:{fontSize:9,color:C.mu}},"Picked by: "),
+                  stock.src.map(s=>React.createElement("span",{key:s,style:{fontSize:9,padding:"1px 6px",borderRadius:4,background:`${SRC[s]||C.mu}20`,color:SRC[s]||C.mu,border:`1px solid ${SRC[s]||C.mu}40`}},s))
+                ),
+                React.createElement("div",{style:{fontSize:9,letterSpacing:2,color:sector.co,marginBottom:5,textTransform:"uppercase"}},"Investment Thesis"),
+                React.createElement("p",{style:{margin:"0 0 6px",color:C.di,fontSize:11,lineHeight:1.7}},stock.th),
+                stock.vc&&React.createElement("div",{style:{background:`${C.pu}10`,border:`1px solid ${C.pu}25`,borderRadius:5,padding:"5px 8px",marginBottom:6}},
+                  React.createElement("span",{style:{color:C.pu,fontSize:9,letterSpacing:1}},"VC INTEL: "),
+                  React.createElement("span",{style:{color:C.di,fontSize:10}},stock.vc)
+                ),
+                React.createElement("div",{style:{background:`${C.re}10`,border:`1px solid ${C.re}25`,borderRadius:5,padding:"5px 8px",marginBottom:6}},
+                  React.createElement("span",{style:{color:C.re,fontSize:9,letterSpacing:1}},"⚠ KEY RISK: "),
+                  React.createElement("span",{style:{color:C.di,fontSize:10}},stock.ri)
+                ),
+                live?React.createElement(RRBlock,{price:live.price,beta:live.beta,week52High:live.week52High,week52Low:live.week52Low,targetPrice:live.targetPrice,fwdPe:live.fwdPe,revGrowth:live.revGrowth})
+                  :React.createElement("div",{style:{fontSize:9,color:C.mu,textAlign:"center",padding:"5px 0"}},"Loading risk/reward stats…"),
+                inWl&&React.createElement("div",{style:{background:`${C.go}10`,border:`1px solid ${C.go}25`,borderRadius:5,padding:"8px 10px",marginTop:7}},
+                  React.createElement("div",{style:{fontSize:9,color:C.go,marginBottom:4,letterSpacing:1}},"★ YOUR NOTES"),
+                  React.createElement(Inp,{value:noteInp[stock.t]??wl[stock.t]?.note??"",onChange:v=>setNoteInp(n=>({...n,[stock.t]:v})),placeholder:"Price targets, conviction level, entry points…",multi:true}),
+                  React.createElement("div",{style:{display:"flex",gap:6,marginTop:5}},
+                    React.createElement(Btn,{small:true,onClick:()=>saveNote(stock.t)},"Save Note"),
+                    React.createElement(Btn,{small:true,color:C.pu,onClick:goToolkit},"→ Toolkit")
+                  )
+                ),
+                !inWl&&React.createElement("div",{style:{marginTop:7}},
+                  React.createElement(Btn,{small:true,full:true,color:C.go,onClick:()=>toggleWl(stock.t,pd?.price)},"☆ Add to Watchlist"))
+              )
+            )
+          );
+        }),
+        React.createElement("div",{style:{marginTop:8,padding:"7px 10px",background:C.s2,borderRadius:7,border:`1px solid ${C.b}`}},
+          React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:8}},
+            [["Growth",GC],["Stage",SC]].map(([label,map])=>
+              React.createElement("div",{key:label},
+                React.createElement("div",{style:{fontSize:7,color:C.mu,letterSpacing:2,marginBottom:2,textTransform:"uppercase"}},label),
+                React.createElement("div",{style:{display:"flex",gap:5,flexWrap:"wrap"}},
+                  Object.entries(map).map(([k,v])=>React.createElement("span",{key:k,style:{fontSize:8,color:v}},`● ${k}`))
+                )
+              )
+            ),
+            React.createElement("div",null,
+              React.createElement("div",{style:{fontSize:7,color:C.mu,letterSpacing:2,marginBottom:2,textTransform:"uppercase"}},"Source"),
+              React.createElement("div",{style:{display:"flex",gap:5,flexWrap:"wrap"}},
+                Object.entries(SRC).filter(([k])=>k!=="Analysts").map(([k,v])=>React.createElement("span",{key:k,style:{fontSize:8,color:v}},`● ${k}`))
+              )
+            )
+          )
+        )
+      )
+    ),
+    // WATCHLIST
+    tab==="watchlist"&&React.createElement("div",{className:"sa",style:{padding:"8px 12px",paddingBottom:24}},
+      React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}},
+        React.createElement("div",{style:{fontSize:13,color:C.go,fontWeight:700}},"⭐ Watchlist"),
+        wlStocks.length>0&&React.createElement(Btn,{small:true,color:C.go,onClick:()=>refresh(wlStocks.map(s=>s.t))},loading?"⟳…":"⟳ Refresh")
+      ),
+      wlStocks.length===0&&React.createElement("div",{style:{textAlign:"center",padding:"50px 20px",color:C.mu,fontSize:12}},"No stocks yet. Go to Sectors and tap ☆ to add stocks."),
+      wlStocks.length>0&&React.createElement("div",null,
+        React.createElement("div",{style:{background:C.s1,border:`1px solid ${C.b}`,borderRadius:8,padding:"8px 12px",marginBottom:10,display:"flex",flexWrap:"wrap",gap:12}},
+          [["TRACKED",wlStocks.length,C.go],["▲ UP",wlStocks.filter(s=>(prices[s.t]?.pct??0)>=0).length,C.gr],["▼ DOWN",wlStocks.filter(s=>(prices[s.t]?.pct??0)<0).length,C.re]].map(([l,v,c])=>
+            React.createElement("div",{key:l},React.createElement("div",{style:{fontSize:8,color:C.mu,letterSpacing:1,marginBottom:1}},l),React.createElement("div",{style:{fontSize:15,fontWeight:700,color:c}},v))
+          ),
+          (()=>{const b=wlStocks.filter(s=>prices[s.t]).sort((a,x)=>(prices[x.t]?.pct??0)-(prices[a.t]?.pct??0))[0];return b?React.createElement("div",{key:"b"},React.createElement("div",{style:{fontSize:8,color:C.mu,letterSpacing:1,marginBottom:1}},"BEST"),React.createElement("div",{style:{fontSize:12,fontWeight:700,color:C.gr}},`${b.t} +${prices[b.t]?.pct?.toFixed(2)}%`)):null;})()
+        ),
+        wlStocks.map(stock=>{
+          const pd=prices[stock.t],ap=wl[stock.t]?.addedPrice,pnl=ap&&pd?((pd.price-ap)/ap)*100:null,up=(pd?.pct??0)>=0;
+          return React.createElement("div",{key:stock.t,style:{border:`1px solid ${C.b}`,borderRadius:9,background:C.s1,marginBottom:7,padding:10}},
+            React.createElement("div",{style:{display:"flex",gap:8,alignItems:"flex-start"}},
+              React.createElement("div",{style:{background:`${stock.sColor}20`,border:`1px solid ${stock.sColor}40`,borderRadius:5,padding:"2px 6px",color:stock.sColor,fontSize:10,fontWeight:700,flexShrink:0,minWidth:40}},stock.t),
+              React.createElement("div",{style:{flex:1,minWidth:0}},
+                React.createElement("div",{style:{fontWeight:600,fontSize:11,color:C.tx}},stock.n),
+                React.createElement("div",{style:{fontSize:9,color:C.mu}},stock.sLabel)
+              ),
+              pd&&React.createElement("div",{style:{flexShrink:0,display:"flex",alignItems:"center",gap:4}},
+                React.createElement(Spark,{data:pd.spark,color:up?C.gr:C.re}),
+                React.createElement("div",{style:{textAlign:"right"}},
+                  React.createElement("div",{style:{fontSize:12,fontWeight:700,color:C.tx}},`$${pd.price?.toFixed(2)}`),
+                  React.createElement("div",{style:{fontSize:9,color:up?C.gr:C.re}},`${up?"▲":"▼"}${Math.abs(pd.pct).toFixed(2)}%`),
+                  pnl!=null&&React.createElement("div",{style:{fontSize:8,color:pnl>=0?C.gr:C.re}},`Since add: ${pnl>=0?"+":""}${pnl.toFixed(2)}%`)
+                )
+              ),
+              React.createElement("button",{onClick:()=>{const u={...wl};delete u[stock.t];setWl(u);sWL(u);},style:{flexShrink:0,background:`${C.re}15`,border:`1px solid ${C.re}40`,borderRadius:4,color:C.re,fontSize:9,padding:"2px 5px",cursor:"pointer"}},"✕")
+            ),
+            wl[stock.t]?.note&&React.createElement("div",{style:{marginTop:6,background:`${C.go}08`,border:`1px solid ${C.go}20`,borderRadius:5,padding:"5px 8px"}},
+              React.createElement("div",{style:{fontSize:8,color:C.go,marginBottom:2}},"YOUR NOTES"),
+              React.createElement("div",{style:{fontSize:10,color:C.di,lineHeight:1.5,whiteSpace:"pre-wrap"}},wl[stock.t].note)
+            ),
+            React.createElement("div",{style:{marginTop:6,display:"flex",gap:4,flexWrap:"wrap",alignItems:"center"}},
+              React.createElement(Pill,{color:GC[stock.gr]||C.mu},`↑${stock.gr}`),
+              React.createElement(Pill,{color:SC[stock.st]||C.mu},stock.st),
+              ap&&React.createElement("span",{style:{fontSize:8,color:C.mu}},`Added @ $${ap?.toFixed(2)}`),
+              React.createElement(Btn,{small:true,color:C.pu,onClick:goToolkit},"→ Toolkit")
+            )
+          );
+        })
+      )
+    )
+  );
+}
+
+// ═══════════ TOOLKIT ════════════════════════════════════
+function AIScorer(){
+  const [ticker,setTicker]=useState("");
+  const [data,setData]=useState(null);
+  const [scores,setScores]=useState(null);
+  const [analysis,setAnalysis]=useState("");
+  const [loading,setLoading]=useState(false);
+  const [error,setError]=useState("");
+  const run=useCallback(async()=>{
+    if(!ticker.trim())return;
+    setLoading(true);setError("");setData(null);setScores(null);setAnalysis("");
+    const t=ticker.trim().toUpperCase();
+    const d=await yahooFull(t);
+    if(!d||!d.price){setError(`Could not fetch "${t}". Either the ticker is wrong, or price data is unavailable. All 3 data sources were tried. Check ticker spelling and try again.`);setLoading(false);return;}
+    setData(d);
+    const prompt=`Analyze ${t} (${d.name}) as an AI sector investment.\nPrice: $${d.price?.toFixed(2)} | Fwd P/E: ${d.fwdPe?.toFixed(1)||"N/A"} | PEG: ${d.peg?.toFixed(2)||"N/A"} | P/S: ${d.ps?.toFixed(2)||"N/A"}\nRev Growth: ${d.revGrowth?(d.revGrowth*100).toFixed(1)+"%":"N/A"} | Gross Margin: ${d.grossMargin?(d.grossMargin*100).toFixed(1)+"%":"N/A"} | Beta: ${d.beta?.toFixed(2)||"N/A"}\nAnalyst Target: $${d.targetPrice?.toFixed(2)||"N/A"} | 52W High: $${d.week52High?.toFixed(2)||"N/A"} | 52W Low: $${d.week52Low?.toFixed(2)||"N/A"}\nReturn ONLY JSON: {"valuation":<0-100>,"growth":<0-100>,"moat":<0-100>,"risk":<0-100>,"aiExposure":<0-100>,"overall":<0-100>,"verdict":"Buy|Hold|Avoid","oneLineSummary":"<20 words>","bull":"<one sentence>","bear":"<one sentence>","keyMetric":"<one metric>","winProb":<0-100>,"expectedReturn":"<e.g. +15% to +45% over 12 months>","downside":"<e.g. -10% to -25%>"}`;
+    try{
+      const raw=await claude(prompt,"You are a quantitative equity analyst. Return only valid JSON, nothing else.");
+      const sc=JSON.parse(raw.replace(/```json|```/g,"").trim());
+      setScores(sc);
+      const txt=await claude(`Write 3 sentences analyzing ${t} for an AI-focused retail investor: (1) why it's relevant to the AI theme, (2) key financial insight, (3) most important risk. Be specific.`);
+      setAnalysis(txt);
+    }catch{setError("AI analysis failed. Try again.");}
+    setLoading(false);
+  },[ticker]);
+
+  return React.createElement("div",null,
+    React.createElement("div",{style:{fontSize:9,letterSpacing:3,color:C.ac,textTransform:"uppercase",marginBottom:6}},"AI Stock Scorer"),
+    React.createElement("p",{style:{fontSize:11,color:C.di,marginBottom:12,lineHeight:1.6}},"Enter any ticker. Claude pulls live financials and scores the stock across 5 dimensions with probability stats."),
+    React.createElement("div",{style:{display:"flex",gap:7,marginBottom:14,flexWrap:"wrap"}},
+      React.createElement(Inp,{value:ticker,onChange:setTicker,placeholder:"e.g. NVDA",style:{width:100,textTransform:"uppercase"}}),
+      React.createElement(Btn,{onClick:run,disabled:loading||!ticker.trim()},loading?"Analyzing…":"Analyze →")
+    ),
+    error&&React.createElement("div",{style:{color:C.re,fontSize:10,marginBottom:8}},error),
+    loading&&React.createElement(Spin,null),
+    data&&scores&&React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:11}},
+      React.createElement("div",{style:{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:8}},
+        React.createElement("div",null,React.createElement("div",{style:{fontSize:16,fontWeight:700,color:C.tx}},ticker.toUpperCase()),React.createElement("div",{style:{fontSize:10,color:C.di}},data.name)),
+        React.createElement("div",{style:{textAlign:"right"}},React.createElement("div",{style:{fontSize:17,fontWeight:700,color:C.tx}},`$${data.price?.toFixed(2)}`),React.createElement("div",{style:{fontSize:10,color:(data.change??0)>=0?C.gr:C.re}},`${(data.change??0)>=0?"▲":"▼"}${Math.abs((data.change??0)*100).toFixed(2)}% today`))
+      ),
+      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}},
+        React.createElement("div",{style:{padding:"5px 13px",borderRadius:6,border:`1px solid ${scores.verdict==="Buy"?C.gr:scores.verdict==="Hold"?C.go:C.re}60`,background:`${scores.verdict==="Buy"?C.gr:scores.verdict==="Hold"?C.go:C.re}15`,color:scores.verdict==="Buy"?C.gr:scores.verdict==="Hold"?C.go:C.re,fontSize:13,fontWeight:700}},scores.verdict),
+        React.createElement("div",{style:{fontSize:11,color:C.di,flex:1}},scores.oneLineSummary)
+      ),
+      React.createElement("div",{style:{background:`${C.go}08`,border:`1px solid ${C.go}30`,borderRadius:8,padding:"10px 12px"}},
+        React.createElement("div",{style:{fontSize:8,color:C.go,letterSpacing:2,marginBottom:7}},"PROBABILITY & EXPECTED RETURN"),
+        React.createElement("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:4}},React.createElement("span",{style:{fontSize:11,color:C.di}},"Win Probability"),React.createElement("span",{style:{fontSize:12,fontWeight:700,color:C.go}},`${scores.winProb||scores.overall}%`)),
+        React.createElement(Bar,{v:scores.winProb||scores.overall,color:C.go}),
+        React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,marginTop:9}},
+          React.createElement("div",{style:{background:C.bg,borderRadius:6,padding:"7px 9px",border:`1px solid ${C.gr}30`,textAlign:"center"}},React.createElement("div",{style:{fontSize:8,color:C.gr,marginBottom:2}},"UPSIDE"),React.createElement("div",{style:{fontSize:11,fontWeight:700,color:C.gr}},scores.expectedReturn||"—")),
+          React.createElement("div",{style:{background:C.bg,borderRadius:6,padding:"7px 9px",border:`1px solid ${C.re}30`,textAlign:"center"}},React.createElement("div",{style:{fontSize:8,color:C.re,marginBottom:2}},"DOWNSIDE"),React.createElement("div",{style:{fontSize:11,fontWeight:700,color:C.re}},scores.downside||"—"))
+        )
+      ),
+      React.createElement("div",null,React.createElement("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:3}},React.createElement("span",{style:{fontSize:11,color:C.di}},"Overall Score"),React.createElement("span",{style:{fontSize:14,fontWeight:700,color:scores.overall>=70?C.gr:scores.overall>=45?C.go:C.re}},`${scores.overall}/100`)),React.createElement(Bar,{v:scores.overall})),
+      React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}},
+        [["Valuation",scores.valuation],["Growth",scores.growth],["Moat",scores.moat],["Risk",scores.risk],["AI Exposure",scores.aiExposure]].map(([l,v])=>
+          React.createElement("div",{key:l,style:{background:C.bg,borderRadius:7,padding:"8px 10px",border:`1px solid ${C.b}`}},
+            React.createElement("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:3}},React.createElement("span",{style:{fontSize:10,color:C.mu}},l),React.createElement("span",{style:{fontSize:11,fontWeight:700,color:v>=70?C.gr:v>=45?C.go:C.re}},v)),
+            React.createElement(Bar,{v}))
+        )
+      ),
+      React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}},
+        React.createElement("div",{style:{background:`${C.gr}0a`,border:`1px solid ${C.gr}25`,borderRadius:7,padding:"8px 10px"}},React.createElement("div",{style:{fontSize:8,color:C.gr,letterSpacing:2,marginBottom:3}},"BULL CASE"),React.createElement("div",{style:{fontSize:10,color:C.di,lineHeight:1.5}},scores.bull)),
+        React.createElement("div",{style:{background:`${C.re}0a`,border:`1px solid ${C.re}25`,borderRadius:7,padding:"8px 10px"}},React.createElement("div",{style:{fontSize:8,color:C.re,letterSpacing:2,marginBottom:3}},"BEAR CASE"),React.createElement("div",{style:{fontSize:10,color:C.di,lineHeight:1.5}},scores.bear))
+      ),
+      React.createElement("div",{style:{background:`${C.ac}0a`,border:`1px solid ${C.ac}25`,borderRadius:6,padding:"7px 10px"}},React.createElement("span",{style:{fontSize:8,color:C.ac,letterSpacing:2}},"KEY METRIC: "),React.createElement("span",{style:{fontSize:10,color:C.di}},scores.keyMetric)),
+      React.createElement("div",null,
+        React.createElement("div",{style:{fontSize:8,letterSpacing:2,color:C.mu,textTransform:"uppercase",marginBottom:4}},"Live Data"),
+        React.createElement(MR,{label:"Fwd P/E",value:data.fwdPe,type:"ratio",bench:35,inv:true}),
+        React.createElement(MR,{label:"PEG Ratio",value:data.peg,type:"ratio",bench:2,inv:true}),
+        React.createElement(MR,{label:"Price/Sales",value:data.ps,type:"ratio",bench:20,inv:true}),
+        React.createElement(MR,{label:"Rev Growth",value:data.revGrowth,type:"pct",bench:0.15}),
+        React.createElement(MR,{label:"Gross Margin",value:data.grossMargin,type:"pct",bench:0.5}),
+        React.createElement(MR,{label:"Beta",value:data.beta,type:"ratio"}),
+        React.createElement(MR,{label:"Analyst Target",value:data.targetPrice,type:"$"}),
+        React.createElement(MR,{label:"52W High",value:data.week52High,type:"$"}),
+        React.createElement(MR,{label:"52W Low",value:data.week52Low,type:"$"})
+      ),
+      analysis&&React.createElement("div",{style:{background:C.bg,borderRadius:7,padding:"10px 12px",border:`1px solid ${C.b}`}},
+        React.createElement("div",{style:{fontSize:8,letterSpacing:2,color:C.pu,textTransform:"uppercase",marginBottom:4}},"AI Analysis"),
+        React.createElement("p",{style:{fontSize:10,color:C.di,lineHeight:1.8,margin:0}},analysis)
+      )
+    )
+  );
+}
+
+function HeadToHead(){
+  const [ta,setTa]=useState(""),[tb,setTb]=useState("");
+  const [dA,setDA]=useState(null),[dB,setDB]=useState(null);
+  const [v,setV]=useState(null);
+  const [loading,setLoading]=useState(false);
+  const [error,setError]=useState("");
+  const compare=useCallback(async()=>{
+    if(!ta.trim()||!tb.trim())return;
+    setLoading(true);setError("");setDA(null);setDB(null);setV(null);
+    const [a,b]=await Promise.all([yahooFull(ta.toUpperCase()),yahooFull(tb.toUpperCase())]);
+    if(!a||!a.price){setError(`Could not fetch ${ta.toUpperCase()}`);setLoading(false);return;}
+    if(!b||!b.price){setError(`Could not fetch ${tb.toUpperCase()}`);setLoading(false);return;}
+    setDA(a);setDB(b);
+    const prompt=`Compare ${ta.toUpperCase()} vs ${tb.toUpperCase()} as AI investments.\n${ta.toUpperCase()}: $${a.price?.toFixed(2)}, FwdPE ${a.fwdPe?.toFixed(1)||"N/A"}, PEG ${a.peg?.toFixed(2)||"N/A"}, RevGrowth ${a.revGrowth?(a.revGrowth*100).toFixed(1)+"%":"N/A"}, Margin ${a.grossMargin?(a.grossMargin*100).toFixed(1)+"%":"N/A"}, Beta ${a.beta?.toFixed(2)||"N/A"}, Target $${a.targetPrice?.toFixed(2)||"N/A"}\n${tb.toUpperCase()}: $${b.price?.toFixed(2)}, FwdPE ${b.fwdPe?.toFixed(1)||"N/A"}, PEG ${b.peg?.toFixed(2)||"N/A"}, RevGrowth ${b.revGrowth?(b.revGrowth*100).toFixed(1)+"%":"N/A"}, Margin ${b.grossMargin?(b.grossMargin*100).toFixed(1)+"%":"N/A"}, Beta ${b.beta?.toFixed(2)||"N/A"}, Target $${b.targetPrice?.toFixed(2)||"N/A"}\nReturn ONLY JSON: {"winner":"${ta.toUpperCase()} or ${tb.toUpperCase()}","winnerReason":"<one sentence>","valuePlay":"<ticker>","growthPlay":"<ticker>","lowerRisk":"<ticker>","analysis":"<3 sentences>","aScore":<0-100>,"bScore":<0-100>,"aWinProb":<0-100>,"bWinProb":<0-100>,"aExpectedReturn":"<range>","bExpectedReturn":"<range>"}`;
+    try{setV(JSON.parse((await claude(prompt,"You are a quantitative equity analyst. Return only valid JSON.")).replace(/```json|```/g,"").trim()));}
+    catch{setError("Comparison failed. Try again.");}
+    setLoading(false);
+  },[ta,tb]);
+  const metrics=[["Fwd P/E","fwdPe","ratio"],["PEG","peg","ratio"],["P/S","ps","ratio"],["Rev Growth","revGrowth","pct"],["Gross Margin","grossMargin","pct"],["Beta","beta","ratio"],["Target","targetPrice","$"]];
+  return React.createElement("div",null,
+    React.createElement("div",{style:{fontSize:9,letterSpacing:3,color:C.ac,textTransform:"uppercase",marginBottom:6}},"Head-to-Head"),
+    React.createElement("div",{style:{display:"flex",gap:7,marginBottom:14,flexWrap:"wrap",alignItems:"center"}},
+      React.createElement(Inp,{value:ta,onChange:setTa,placeholder:"Ticker A e.g. NVDA",style:{width:140,textTransform:"uppercase"}}),
+      React.createElement("span",{style:{color:C.mu,fontSize:12}},"vs"),
+      React.createElement(Inp,{value:tb,onChange:setTb,placeholder:"Ticker B e.g. AMD",style:{width:140,textTransform:"uppercase"}}),
+      React.createElement(Btn,{onClick:compare,disabled:loading||!ta.trim()||!tb.trim()},loading?"Comparing…":"Compare →")
+    ),
+    error&&React.createElement("div",{style:{color:C.re,fontSize:10,marginBottom:8}},error),
+    loading&&React.createElement(Spin,null),
+    dA&&dB&&v&&React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:10}},
+      React.createElement("div",{style:{background:`${C.go}10`,border:`1px solid ${C.go}40`,borderRadius:9,padding:"10px 13px"}},
+        React.createElement("div",{style:{fontSize:8,color:C.go,letterSpacing:3,marginBottom:2}},"AI VERDICT"),
+        React.createElement("div",{style:{fontSize:14,fontWeight:700,color:C.go,marginBottom:2}},`${v.winner} wins`),
+        React.createElement("div",{style:{fontSize:10,color:C.di}},v.winnerReason)
+      ),
+      React.createElement("div",{style:{display:"flex",gap:6,flexWrap:"wrap"}},
+        React.createElement("span",{style:{fontSize:9,padding:"2px 7px",borderRadius:4,border:`1px solid ${C.gr}40`,color:C.gr,background:`${C.gr}12`}},`💰 Value: ${v.valuePlay}`),
+        React.createElement("span",{style:{fontSize:9,padding:"2px 7px",borderRadius:4,border:`1px solid ${C.ac}40`,color:C.ac,background:`${C.ac}12`}},`🚀 Growth: ${v.growthPlay}`),
+        React.createElement("span",{style:{fontSize:9,padding:"2px 7px",borderRadius:4,border:`1px solid ${C.pu}40`,color:C.pu,background:`${C.pu}12`}},`🛡 Low Risk: ${v.lowerRisk}`)
+      ),
+      React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}},
+        [dA,dB].map((d,i)=>{
+          const score=i===0?v.aScore:v.bScore,wr=i===0?v.aWinProb:v.bWinProb,er=i===0?v.aExpectedReturn:v.bExpectedReturn;
+          return React.createElement("div",{key:i,style:{background:C.bg,borderRadius:7,padding:"10px 11px",border:`1px solid ${C.b}`}},
+            React.createElement("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:4}},React.createElement("span",{style:{fontWeight:700,color:C.tx,fontSize:12}},[ta,tb][i].toUpperCase()),React.createElement("span",{style:{fontSize:11,fontWeight:700,color:score>=70?C.gr:score>=45?C.go:C.re}},`${score}/100`)),
+            React.createElement(Bar,{v:score}),
+            wr&&React.createElement("div",{style:{fontSize:9,color:C.go,marginTop:4}},`Win Prob: ${wr}%`),
+            er&&React.createElement("div",{style:{fontSize:9,color:C.gr,marginTop:1}},`Expected: ${er}`),
+            React.createElement("div",{style:{fontSize:9,color:C.mu,marginTop:3}},d.name),
+            React.createElement("div",{style:{fontSize:11,color:C.tx,marginTop:2}},`$${d.price?.toFixed(2)}`)
+          );
+        })
+      ),
+      React.createElement("div",{style:{background:C.bg,borderRadius:7,overflow:"hidden",border:`1px solid ${C.b}`}},
+        React.createElement("div",{style:{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",background:C.s1,padding:"6px 11px",gap:5}},
+          React.createElement("span",{style:{fontSize:9,color:C.mu}},"METRIC"),
+          React.createElement("span",{style:{fontSize:9,color:C.ac,textAlign:"right"}},ta.toUpperCase()),
+          React.createElement("span",{style:{fontSize:9,color:C.ac,textAlign:"right"}},tb.toUpperCase())
+        ),
+        metrics.map(([label,key,type])=>React.createElement("div",{key:label,style:{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",padding:"5px 11px",gap:5,borderTop:`1px solid ${C.b}`}},
+          React.createElement("span",{style:{fontSize:10,color:C.di}},label),
+          React.createElement("span",{style:{fontSize:10,color:C.tx,textAlign:"right"}},fv(dA[key],type)),
+          React.createElement("span",{style:{fontSize:10,color:C.tx,textAlign:"right"}},fv(dB[key],type))
+        ))
+      ),
+      v.analysis&&React.createElement("div",{style:{background:C.bg,borderRadius:7,padding:"10px 12px",border:`1px solid ${C.b}`}},
+        React.createElement("div",{style:{fontSize:8,letterSpacing:2,color:C.pu,textTransform:"uppercase",marginBottom:4}},"Analysis"),
+        React.createElement("p",{style:{fontSize:10,color:C.di,lineHeight:1.8,margin:0}},v.analysis)
+      )
+    )
+  );
+}
+
+const CL=[
+  {id:"rev",g:"Growth",l:"Revenue growth >15% YoY"},{id:"margin",g:"Growth",l:"Gross margin >50% (software) or >30% (hardware)"},
+  {id:"accel",g:"Growth",l:"Growth is accelerating, not decelerating"},{id:"ndr",g:"Growth",l:"Net dollar retention >120% (SaaS)"},
+  {id:"peg",g:"Valuation",l:"PEG ratio below 2.0"},{id:"fwdpe",g:"Valuation",l:"Forward P/E justified by growth rate"},
+  {id:"moat",g:"Moat",l:"Clear competitive advantage (data, network, switching costs)"},{id:"aicore",g:"Moat",l:"AI is core to the business model, not marketing add-on"},
+  {id:"leader",g:"Moat",l:"Market leader or clear #2 in its niche"},{id:"mgmt",g:"Management",l:"Management has AI expertise and credibility"},
+  {id:"insider",g:"Management",l:"No concerning insider selling trend"},{id:"guidance",g:"Management",l:"Company consistently beats and raises guidance"},
+  {id:"debt",g:"Risk",l:"Debt/Equity below 1.5 (or justified by cash flow)"},{id:"burn",g:"Risk",l:"Cash runway >18 months (pre-revenue companies)"},
+  {id:"geo",g:"Risk",l:"No dangerous geopolitical concentration (China <20%)"},{id:"customer",g:"Risk",l:"No single customer >30% of revenue"},
+  {id:"cat",g:"Catalysts",l:"Upcoming catalyst in next 6 months"},{id:"timing",g:"Catalysts",l:"Entry point at or below 52W average"},
+];
+function Checklist(){
+  const [ticker,setTicker]=useState("");
+  const [checks,setChecks]=useState({});
+  const [verdict,setVerdict]=useState(null);
+  const [aiTake,setAiTake]=useState("");
+  const [loading,setLoading]=useState(false);
+  const score=Object.values(checks).filter(Boolean).length;
+  const pct=Math.round(score/CL.length*100);
+  const groups=[...new Set(CL.map(i=>i.g))];
+  const getVerdict=async()=>{
+    setLoading(true);const v=score>=14?"Buy":score>=9?"Hold":"Avoid";setVerdict(v);
+    const txt=await claude(`For ${ticker||"this stock"}, investor checked ${score}/${CL.length} criteria. Passing: ${CL.filter(i=>checks[i.id]).slice(0,7).map(i=>i.l).join("; ")}. Failing: ${CL.filter(i=>!checks[i.id]).slice(0,5).map(i=>i.l).join("; ")}. In 2 sentences: what does this score tell us, and the single most important unchecked item to investigate before buying?`);
+    setAiTake(txt);setLoading(false);
+  };
+  return React.createElement("div",null,
+    React.createElement("div",{style:{fontSize:9,letterSpacing:3,color:C.ac,textTransform:"uppercase",marginBottom:6}},"Buy / Hold / Avoid Checklist"),
+    React.createElement("div",{style:{display:"flex",gap:7,alignItems:"center",marginBottom:14,flexWrap:"wrap"}},
+      React.createElement(Inp,{value:ticker,onChange:setTicker,placeholder:"Ticker (optional)",style:{width:130,textTransform:"uppercase"}}),
+      React.createElement("div",{style:{flex:1,minWidth:140}},
+        React.createElement("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:3}},React.createElement("span",{style:{fontSize:10,color:C.mu}},`${score}/${CL.length}`),React.createElement("span",{style:{fontSize:11,fontWeight:700,color:pct>=74?C.gr:pct>=47?C.go:C.re}},`${pct}%`)),
+        React.createElement(Bar,{v:pct})
+      ),
+      React.createElement(Btn,{onClick:getVerdict,disabled:loading},"Get Verdict →")
+    ),
+    verdict&&React.createElement("div",{style:{display:"flex",alignItems:"flex-start",gap:9,marginBottom:12,padding:"8px 12px",borderRadius:8,border:`1px solid ${verdict==="Buy"?C.gr:verdict==="Hold"?C.go:C.re}40`,background:`${verdict==="Buy"?C.gr:verdict==="Hold"?C.go:C.re}0a`}},
+      React.createElement("span",{style:{fontSize:15,fontWeight:700,color:verdict==="Buy"?C.gr:verdict==="Hold"?C.go:C.re,flexShrink:0}},verdict),
+      aiTake&&React.createElement("span",{style:{fontSize:10,color:C.di,lineHeight:1.5}},aiTake)
+    ),
+    loading&&React.createElement(Spin,null),
+    groups.map(g=>React.createElement("div",{key:g,style:{marginBottom:12}},
+      React.createElement("div",{style:{fontSize:8,color:C.mu,letterSpacing:2,marginBottom:6,textTransform:"uppercase",borderBottom:`1px solid ${C.b}`,paddingBottom:3}},g),
+      CL.filter(i=>i.g===g).map(item=>React.createElement("div",{key:item.id,style:{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:`1px solid ${C.b}18`}},
+        React.createElement("button",{onClick:()=>setChecks(c=>({...c,[item.id]:!c[item.id]})),style:{flexShrink:0,width:17,height:17,borderRadius:4,border:`1px solid ${checks[item.id]?C.gr:C.b}`,background:checks[item.id]?`${C.gr}25`:"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:C.gr}},checks[item.id]?"✓":""),
+        React.createElement("span",{style:{fontSize:11,color:checks[item.id]?C.tx:C.di}},item.l)
+      ))
+    ))
+  );
+}
+
+function OptionsAnalyzer(){
+  const [f,setF]=useState({ticker:"",stockPrice:"",strike:"",premium:"",expDays:"",impliedVol:"",type:"Call"});
+  const [result,setResult]=useState(null);
+  const [aiTake,setAiTake]=useState("");
+  const [loading,setLoading]=useState(false);
+  const set=(k,v)=>setF(p=>({...p,[k]:v}));
+  const n=(k)=>parseFloat(f[k])||null;
+  const analyze=async()=>{
+    const S=n("stockPrice"),K=n("strike"),P=n("premium"),IV=n("impliedVol");
+    if(!S||!K||!P)return;
+    const isCall=f.type==="Call",lotCost=P*100,breakeven=isCall?K+P:K-P,moveNeeded=Math.abs(breakeven-S)/S*100;
+    const winProb=Math.max(10,Math.min(85,70-moveNeeded*2+(IV&&parseFloat(IV)<35?5:-5)));
+    setResult({lotCost,breakeven,moveNeeded,isCall,S,K,P,ivPct:IV,winProb});
+    setLoading(true);
+    const txt=await claude(`Options trade on ${f.ticker||"a stock"}: ${f.type} option, stock $${S}, strike $${K}, premium $${P}/share, ${n("expDays")||"?"}d expiry. Breakeven $${breakeven.toFixed(2)} (${moveNeeded.toFixed(1)}% move needed). Max loss $${lotCost.toFixed(0)}/contract. IV: ${IV||"unknown"}%. 3 sentences: (1) is risk/reward attractive? (2) is breakeven realistic? (3) one specific risk this expires worthless.`);
+    setAiTake(txt);setLoading(false);
+  };
+  return React.createElement("div",null,
+    React.createElement("div",{style:{fontSize:9,letterSpacing:3,color:C.or,textTransform:"uppercase",marginBottom:6}},"Options Risk / Reward"),
+    React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,marginBottom:12}},
+      React.createElement("div",null,React.createElement("div",{style:{fontSize:9,color:C.mu,marginBottom:3}},"TICKER"),React.createElement(Inp,{value:f.ticker,onChange:v=>set("ticker",v),placeholder:"e.g. NVDA",style:{width:"100%",boxSizing:"border-box",textTransform:"uppercase"}})),
+      React.createElement("div",null,React.createElement("div",{style:{fontSize:9,color:C.mu,marginBottom:3}},"TYPE"),React.createElement("div",{style:{display:"flex",gap:5}},["Call","Put"].map(tp=>React.createElement("button",{key:tp,onClick:()=>set("type",tp),style:{flex:1,padding:"8px 0",borderRadius:6,border:`1px solid ${f.type===tp?C.or:C.b}`,background:f.type===tp?`${C.or}18`:"transparent",color:f.type===tp?C.or:C.mu,fontSize:11,cursor:"pointer"}},tp)))),
+      ...[["stockPrice","Stock Price ($)","e.g. 875"],["strike","Strike ($)","e.g. 900"],["premium","Premium/Share ($)","e.g. 18.50"],["expDays","Days to Expiry","e.g. 30"],["impliedVol","Implied Vol (%)","e.g. 45"]].map(([key,label,ph])=>
+        React.createElement("div",{key},React.createElement("div",{style:{fontSize:9,color:C.mu,marginBottom:3}},label.toUpperCase()),React.createElement(Inp,{value:f[key],onChange:v=>set(key,v),placeholder:ph,style:{width:"100%",boxSizing:"border-box"}}))
+      )
+    ),
+    React.createElement(Btn,{onClick:analyze,disabled:loading||!f.stockPrice||!f.strike||!f.premium,color:C.or},loading?"Analyzing…":"Analyze Trade →"),
+    result&&React.createElement("div",{style:{marginTop:13,display:"flex",flexDirection:"column",gap:8}},
+      React.createElement("div",{style:{background:`${C.go}08`,border:`1px solid ${C.go}30`,borderRadius:8,padding:"9px 11px"}},
+        React.createElement("div",{style:{fontSize:8,color:C.go,letterSpacing:2,marginBottom:5}},"PROBABILITY OF PROFIT"),
+        React.createElement("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:3}},React.createElement("span",{style:{fontSize:11,color:C.di}},"Estimated Win Probability"),React.createElement("span",{style:{fontSize:12,fontWeight:700,color:C.go}},`~${result.winProb.toFixed(0)}%`)),
+        React.createElement(Bar,{v:result.winProb,color:C.go})
+      ),
+      React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:7}},
+        [["Cost/Contract",`$${result.lotCost.toFixed(0)}`,C.tx],["Breakeven",`$${result.breakeven.toFixed(2)}`,result.isCall?C.gr:C.re],["Move Needed",`${result.moveNeeded.toFixed(1)}%`,result.moveNeeded<5?C.gr:result.moveNeeded<15?C.go:C.re],["Max Loss",`$${result.lotCost.toFixed(0)}`,C.re],["2x Return at",`$${(result.isCall?result.K+result.P*2:result.K-result.P*2).toFixed(2)}`,C.go],["3x Return at",`$${(result.isCall?result.K+result.P*3:result.K-result.P*3).toFixed(2)}`,C.gr]].map(([l,v,c])=>
+          React.createElement("div",{key:l,style:{background:C.bg,borderRadius:7,padding:"7px 9px",border:`1px solid ${C.b}`,textAlign:"center"}},React.createElement("div",{style:{fontSize:7,color:C.mu,marginBottom:2,letterSpacing:1}},l.toUpperCase()),React.createElement("div",{style:{fontSize:12,fontWeight:700,color:c}},v))
+        )
+      ),
+      React.createElement("div",{style:{background:C.bg,borderRadius:7,padding:"9px 11px",border:`1px solid ${C.b}`}},
+        React.createElement("div",{style:{fontSize:8,color:C.mu,letterSpacing:2,marginBottom:7}},"PAYOFF SCENARIOS (per contract)"),
+        [["Expires worthless",-result.lotCost],["Breakeven",0],["Stock +5%",result.isCall?Math.max(0,(result.S*1.05-result.K)*100)-result.lotCost:Math.max(0,(result.K-result.S*0.95)*100)-result.lotCost],["Stock +10%",result.isCall?Math.max(0,(result.S*1.10-result.K)*100)-result.lotCost:Math.max(0,(result.K-result.S*0.90)*100)-result.lotCost],["Stock +20%",result.isCall?Math.max(0,(result.S*1.20-result.K)*100)-result.lotCost:Math.max(0,(result.K-result.S*0.80)*100)-result.lotCost]].map(([label,pnl])=>
+          React.createElement("div",{key:label,style:{marginBottom:5}},
+            React.createElement("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:2}},React.createElement("span",{style:{fontSize:10,color:C.di}},label),React.createElement("span",{style:{fontSize:10,fontWeight:600,color:pnl>0?C.gr:pnl<0?C.re:C.mu}},`${pnl>=0?"+":""}$${pnl.toFixed(0)}`)),
+            React.createElement("div",{style:{height:4,background:C.b,borderRadius:2}},React.createElement("div",{style:{height:"100%",width:`${Math.min(100,Math.abs(pnl)/(result.lotCost*3)*100)}%`,background:pnl>=0?C.gr:C.re,borderRadius:2}}))
+          )
+        )
+      ),
+      result.ivPct&&React.createElement("div",{style:{fontSize:10,color:C.mu,padding:"6px 10px",background:C.bg,borderRadius:6,border:`1px solid ${C.b}`}},`IV ${result.ivPct}% — ${parseFloat(result.ivPct)>60?"Very high IV. Premium expensive. Watch for IV crush after earnings.":parseFloat(result.ivPct)>35?"Elevated IV. Check if a catalyst is priced in.":"Normal IV. Relatively fairly priced."}`),
+      loading&&React.createElement(Spin,null),
+      aiTake&&React.createElement("div",{style:{background:C.bg,borderRadius:7,padding:"9px 11px",border:`1px solid ${C.b}`}},
+        React.createElement("div",{style:{fontSize:8,letterSpacing:2,color:C.pu,textTransform:"uppercase",marginBottom:4}},"AI Trade Assessment"),
+        React.createElement("p",{style:{fontSize:10,color:C.di,lineHeight:1.8,margin:0}},aiTake))
+    )
+  );
+}
+
+
+// ═══ MORNING BRIEFING ════════════════════════════════════
+function MorningBriefing({wl}){
+  const [briefing,setBriefing]=useState(null);
+  const [loading,setLoading]=useState(false);
+  const [lastRun,setLastRun]=useState(null);
+  const allStocks=SECTORS.flatMap(s=>s.stocks.map(st=>({...st,sLabel:s.lb})));
+  const wlStocks=allStocks.filter(s=>wl[s.t]);
+  const run=useCallback(async()=>{
+    if(wlStocks.length===0)return;
+    setLoading(true);setBriefing(null);
+    const tickers=wlStocks.map(s=>s.t).join(", ");
+    const prompt=`You are an AI trading agent running a morning market briefing. Watchlist: ${tickers}. Use web search to find: (1) overnight price moves and pre-market activity, (2) breaking news or analyst changes in last 24h, (3) broader market sentiment today, (4) any unusual options activity. Return ONLY JSON (no markdown): {"marketMood":"Bullish|Neutral|Bearish","moodReason":"<one sentence>","topMover":"<ticker>","topMoverReason":"<why>","alerts":[{"ticker":"<t>","type":"News|Earnings|Upgrade|Downgrade|Technical","headline":"<brief>","impact":"Positive|Negative|Neutral","action":"Watch|Buy Dip|Take Profit|Avoid"}],"opportunities":[{"ticker":"<t>","setup":"<specific entry setup>","timeframe":"<today|this week|this month>"}],"risks":["<risk1>","<risk2>"],"agentSummary":"<3 sentences: overnight, what to watch, one actionable idea>"}`;
+    try{
+      const raw=await claude(prompt,"You are an AI trading agent. Use web search for real current data. Return only valid JSON.");
+      setBriefing(JSON.parse(raw.replace(/```json|```/g,"").trim()));
+      setLastRun(new Date());
+    }catch{setBriefing({agentSummary:"Could not generate briefing — check your API key and try again.",alerts:[],opportunities:[],risks:[],marketMood:"Neutral",moodReason:"Data unavailable"});}
+    setLoading(false);
+  },[wlStocks]);
+  const mc=briefing?.marketMood==="Bullish"?C.gr:briefing?.marketMood==="Bearish"?C.re:C.go;
+  const ic=(i)=>i==="Positive"?C.gr:i==="Negative"?C.re:C.go;
+  const ac2=(a)=>a==="Buy Dip"?C.gr:a==="Take Profit"?C.go:a==="Avoid"?C.re:C.ac;
+  return React.createElement("div",null,
+    React.createElement("div",{style:{fontSize:9,letterSpacing:3,color:C.ac,textTransform:"uppercase",marginBottom:6}},"🤖 Morning AI Briefing"),
+    React.createElement("p",{style:{fontSize:11,color:C.di,marginBottom:12,lineHeight:1.6}},"Your AI agent scans overnight news, price moves, and market sentiment across your entire watchlist and delivers a morning brief with actionable ideas."),
+    wlStocks.length===0
+      ?React.createElement("div",{style:{background:C.s2,border:`1px solid ${C.b}`,borderRadius:8,padding:14,textAlign:"center",color:C.mu,fontSize:12}},"Add stocks to your watchlist first — go to the Guide and tap ☆ on any stock.")
+      :React.createElement("div",null,
+        React.createElement("div",{style:{marginBottom:14}},
+          React.createElement("div",{style:{fontSize:10,color:C.mu,marginBottom:8}},"Watching: "+wlStocks.map(s=>s.t).join(" · ")),
+          React.createElement("div",{style:{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}},
+            React.createElement("button",{onClick:run,disabled:loading,style:{padding:"10px 20px",borderRadius:8,border:`1px solid ${C.ac}60`,background:loading?`${C.ac}08`:`${C.ac}18`,color:loading?C.mu:C.ac,fontSize:12,cursor:loading?"not-allowed":"pointer"}},loading?"🤖 Agent running…":"🤖 Run Morning Briefing"),
+            lastRun&&React.createElement("span",{style:{fontSize:9,color:C.mu}},"Last run: "+lastRun.toLocaleTimeString())
+          )
+        ),
+        loading&&React.createElement("div",{style:{background:C.s2,border:`1px solid ${C.b}`,borderRadius:10,padding:14}},
+          React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:8}},
+            React.createElement("div",{style:{width:14,height:14,border:`2px solid ${C.b}`,borderTop:`2px solid ${C.ac}`,borderRadius:"50%",animation:"spin 0.8s linear infinite"}}),
+            React.createElement("span",{style:{fontSize:12,color:C.ac}},"Agent scanning markets…")),
+          ["Checking overnight price moves…","Scanning news and earnings…","Analyzing market sentiment…","Identifying opportunities…"].map((s,i)=>React.createElement("div",{key:i,style:{fontSize:11,color:C.mu,padding:"2px 0",paddingLeft:24}},s))
+        ),
+        briefing&&React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:10}},
+          React.createElement("div",{style:{background:`${mc}10`,border:`1px solid ${mc}40`,borderRadius:9,padding:"11px 13px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}},
+            React.createElement("div",null,React.createElement("div",{style:{fontSize:9,color:C.mu,letterSpacing:2,marginBottom:2}},"MARKET MOOD"),React.createElement("div",{style:{fontSize:17,fontWeight:700,color:mc}},briefing.marketMood)),
+            React.createElement("div",{style:{fontSize:11,color:C.di,flex:1,textAlign:"right"}},briefing.moodReason)
+          ),
+          React.createElement("div",{style:{background:C.s2,border:`1px solid ${C.b}`,borderRadius:9,padding:"11px 13px"}},
+            React.createElement("div",{style:{fontSize:9,color:C.pu,letterSpacing:2,marginBottom:6}},"🤖 AGENT SUMMARY"),
+            React.createElement("p",{style:{fontSize:12,color:C.di,lineHeight:1.8,margin:0}},briefing.agentSummary)
+          ),
+          briefing.alerts?.length>0&&React.createElement("div",null,
+            React.createElement("div",{style:{fontSize:9,color:C.go,letterSpacing:2,marginBottom:7}},"⚡ ALERTS"),
+            briefing.alerts.map((a,i)=>React.createElement("div",{key:i,style:{background:C.s2,border:`1px solid ${ic(a.impact)}30`,borderRadius:8,padding:"9px 11px",marginBottom:6}},
+              React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:6,flexWrap:"wrap"}},
+                React.createElement("div",{style:{flex:1}},
+                  React.createElement("div",{style:{display:"flex",gap:5,alignItems:"center",marginBottom:3,flexWrap:"wrap"}},
+                    React.createElement("span",{style:{background:`${C.ac}20`,border:`1px solid ${C.ac}40`,borderRadius:4,padding:"1px 5px",color:C.ac,fontSize:10,fontWeight:700}},a.ticker),
+                    React.createElement("span",{style:{fontSize:9,color:ic(a.impact),background:`${ic(a.impact)}15`,border:`1px solid ${ic(a.impact)}30`,borderRadius:3,padding:"1px 4px"}},a.type)
+                  ),
+                  React.createElement("div",{style:{fontSize:11,color:C.di}},a.headline)
+                ),
+                React.createElement("div",{style:{background:`${ac2(a.action)}15`,border:`1px solid ${ac2(a.action)}40`,borderRadius:5,padding:"3px 8px",color:ac2(a.action),fontSize:10,fontWeight:700,whiteSpace:"nowrap"}},a.action)
+              )
+            ))
+          ),
+          briefing.opportunities?.length>0&&React.createElement("div",null,
+            React.createElement("div",{style:{fontSize:9,color:C.gr,letterSpacing:2,marginBottom:7}},"💡 SETUPS"),
+            briefing.opportunities.map((o,i)=>React.createElement("div",{key:i,style:{background:`${C.gr}08`,border:`1px solid ${C.gr}25`,borderRadius:8,padding:"9px 11px",marginBottom:6}},
+              React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3}},
+                React.createElement("span",{style:{background:`${C.gr}20`,border:`1px solid ${C.gr}40`,borderRadius:4,padding:"1px 5px",color:C.gr,fontSize:10,fontWeight:700}},o.ticker),
+                React.createElement("span",{style:{fontSize:9,color:C.mu}},o.timeframe)
+              ),
+              React.createElement("div",{style:{fontSize:11,color:C.di}},o.setup)
+            ))
+          ),
+          briefing.risks?.length>0&&React.createElement("div",{style:{background:`${C.re}08`,border:`1px solid ${C.re}25`,borderRadius:8,padding:"9px 11px"}},
+            React.createElement("div",{style:{fontSize:9,color:C.re,letterSpacing:2,marginBottom:6}},"⚠ RISKS TO WATCH"),
+            briefing.risks.map((r,i)=>React.createElement("div",{key:i,style:{fontSize:11,color:C.di,padding:"3px 0",borderBottom:i<briefing.risks.length-1?`1px solid ${C.b}18`:"none"}},`• ${r}`))
+          )
+        )
+      )
+  );
+}
+
+// ═══ EARNINGS CALENDAR ═══════════════════════════════════
+function EarningsCalendar({wl}){
+  const [data,setData]=useState(null);
+  const [loading,setLoading]=useState(false);
+  const allStocks=SECTORS.flatMap(s=>s.stocks.map(st=>({...st,sColor:s.co})));
+  const wlStocks=allStocks.filter(s=>wl[s.t]);
+  const targets=wlStocks.length>0?wlStocks:allStocks.slice(0,15);
+  const fetch_=useCallback(async()=>{
+    setLoading(true);setData(null);
+    const tickers=targets.slice(0,15).map(s=>s.t).join(", ");
+    const prompt=`Use web search to find upcoming earnings dates and recent earnings results for: ${tickers}. Return ONLY JSON: {"upcoming":[{"ticker":"<t>","date":"<e.g. Jun 15>","daysAway":<number>,"estimate":"<EPS estimate>","importance":"High|Medium|Low"}],"recent":[{"ticker":"<t>","date":"<date>","result":"Beat|Miss|In-Line","epsSurprise":"<e.g. +12%>","stockMove":"<e.g. +8% next day>"}]}`;
+    try{
+      const raw=await claude(prompt,"You are a financial data assistant. Use web search for real current earnings data. Return only valid JSON.");
+      setData(JSON.parse(raw.replace(/```json|```/g,"").trim()));
+    }catch{setData({upcoming:[],recent:[]});}
+    setLoading(false);
+  },[targets]);
+  useEffect(()=>{fetch_();},[]);
+  const ic=(i)=>i==="High"?C.re:i==="Medium"?C.go:C.mu;
+  return React.createElement("div",null,
+    React.createElement("div",{style:{fontSize:9,letterSpacing:3,color:C.ac,textTransform:"uppercase",marginBottom:6}},"📅 Earnings Calendar"),
+    React.createElement("p",{style:{fontSize:11,color:C.di,marginBottom:10,lineHeight:1.6}},"Upcoming earnings dates and recent results for your watchlist. Earnings are the biggest single catalyst for price moves."),
+    React.createElement("button",{onClick:fetch_,disabled:loading,style:{padding:"6px 13px",borderRadius:7,border:`1px solid ${C.ac}50`,background:`${C.ac}12`,color:C.ac,fontSize:11,cursor:"pointer",marginBottom:12}},loading?"Loading…":"⟳ Refresh"),
+    loading&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,color:C.mu,fontSize:11,padding:"8px 0"}},React.createElement("div",{style:{width:13,height:13,border:`2px solid ${C.b}`,borderTop:`2px solid ${C.ac}`,borderRadius:"50%",animation:"spin 0.8s linear infinite"}}),"Fetching earnings data…"),
+    data&&React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:12}},
+      React.createElement("div",null,
+        React.createElement("div",{style:{fontSize:9,color:C.go,letterSpacing:2,marginBottom:7}},"UPCOMING"),
+        data.upcoming?.length===0&&React.createElement("div",{style:{color:C.mu,fontSize:11}},"No upcoming earnings found."),
+        data.upcoming?.sort((a,b)=>a.daysAway-b.daysAway).map((ev,i)=>{
+          const st=allStocks.find(s=>s.t===ev.ticker);
+          return React.createElement("div",{key:i,style:{background:C.s2,border:`1px solid ${ic(ev.importance)}30`,borderRadius:8,padding:"9px 11px",marginBottom:6,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:6}},
+            React.createElement("div",null,
+              React.createElement("div",{style:{display:"flex",gap:5,alignItems:"center",marginBottom:2}},
+                React.createElement("span",{style:{background:`${st?.sColor||C.ac}20`,border:`1px solid ${st?.sColor||C.ac}40`,borderRadius:4,padding:"1px 5px",color:st?.sColor||C.ac,fontSize:10,fontWeight:700}},ev.ticker),
+                React.createElement("span",{style:{fontSize:9,color:ic(ev.importance)}},ev.importance)
+              ),
+              React.createElement("div",{style:{fontSize:11,color:C.tx,fontWeight:600}},ev.date),
+              ev.estimate&&React.createElement("div",{style:{fontSize:9,color:C.mu}},"Est: "+ev.estimate)
+            ),
+            React.createElement("div",{style:{background:ev.daysAway<=3?`${C.re}20`:ev.daysAway<=7?`${C.go}20`:`${C.mu}15`,border:`1px solid ${ev.daysAway<=3?C.re:ev.daysAway<=7?C.go:C.b}`,borderRadius:6,padding:"4px 9px",textAlign:"center"}},
+              React.createElement("div",{style:{fontSize:14,fontWeight:700,color:ev.daysAway<=3?C.re:ev.daysAway<=7?C.go:C.mu}},ev.daysAway),
+              React.createElement("div",{style:{fontSize:8,color:C.mu}},"days")
+            )
+          );
+        })
+      ),
+      data.recent?.length>0&&React.createElement("div",null,
+        React.createElement("div",{style:{fontSize:9,color:C.di,letterSpacing:2,marginBottom:7}},"RECENT RESULTS"),
+        data.recent.map((r,i)=>{
+          const st=allStocks.find(s=>s.t===r.ticker);
+          const rc=r.result==="Beat"?C.gr:r.result==="Miss"?C.re:C.go;
+          return React.createElement("div",{key:i,style:{background:C.s2,border:`1px solid ${rc}25`,borderRadius:8,padding:"9px 11px",marginBottom:6,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:6}},
+            React.createElement("div",{style:{display:"flex",gap:5,alignItems:"center"}},
+              React.createElement("span",{style:{background:`${st?.sColor||C.ac}20`,border:`1px solid ${st?.sColor||C.ac}40`,borderRadius:4,padding:"1px 5px",color:st?.sColor||C.ac,fontSize:10,fontWeight:700}},r.ticker),
+              React.createElement("span",{style:{fontSize:10,color:rc,fontWeight:700}},r.result),
+              React.createElement("span",{style:{fontSize:9,color:C.mu}},r.date)
+            ),
+            React.createElement("div",{style:{textAlign:"right"}},
+              r.epsSurprise&&React.createElement("div",{style:{fontSize:10,color:C.di}},r.epsSurprise),
+              r.stockMove&&React.createElement("div",{style:{fontSize:11,fontWeight:700,color:r.stockMove.startsWith("+")?C.gr:C.re}},r.stockMove)
+            )
+          );
+        })
+      )
+    )
+  );
+}
+
+// ═══ TECHNICAL SIGNALS ════════════════════════════════════
+function TechnicalSignals(){
+  const [ticker,setTicker]=useState("");
+  const [data,setData]=useState(null);
+  const [loading,setLoading]=useState(false);
+  const [error,setError]=useState("");
+  const analyze=useCallback(async()=>{
+    if(!ticker.trim())return;
+    setLoading(true);setError("");setData(null);
+    const t=ticker.trim().toUpperCase();
+    const prompt=`Use web search to find current technical analysis for ${t} stock. Search "${t} RSI MACD moving average support resistance". Return ONLY JSON: {"ticker":"${t}","price":<number>,"trend":"Uptrend|Downtrend|Sideways","trendStrength":"Strong|Moderate|Weak","rsi":<0-100>,"rsiSignal":"Overbought|Oversold|Neutral","macd":"Bullish|Bearish|Neutral","ma50":<price or null>,"ma200":<price or null>,"goldenCross":<true/false>,"deathCross":<true/false>,"support":<price or null>,"resistance":<price or null>,"volume":"Above Average|Below Average|Average","entryZone":"<price range>","stopLoss":"<price>","priceTarget":"<price>","overallSignal":"Strong Buy|Buy|Hold|Sell|Strong Sell","keyLevel":"<most important price level and why>","summary":"<2 sentences: current setup and what confirms a trade>"}`;
+    try{
+      const raw=await claude(prompt,"You are a technical analyst. Use web search for real current data. Return only valid JSON.");
+      setData(JSON.parse(raw.replace(/```json|```/g,"").trim()));
+    }catch{setError("Could not fetch technical data. Try again.");}
+    setLoading(false);
+  },[ticker]);
+  const sc=(s)=>{if(!s)return C.mu;const sl=s.toLowerCase();if(sl.includes("strong buy")||sl.includes("oversold")||sl.includes("bullish")||sl.includes("uptrend"))return C.gr;if(sl.includes("strong sell")||sl.includes("overbought")||sl.includes("bearish")||sl.includes("downtrend"))return C.re;return C.go;};
+  return React.createElement("div",null,
+    React.createElement("div",{style:{fontSize:9,letterSpacing:3,color:C.ac,textTransform:"uppercase",marginBottom:6}},"📈 Technical Signals"),
+    React.createElement("p",{style:{fontSize:11,color:C.di,marginBottom:12,lineHeight:1.6}},"RSI, MACD, moving averages, support/resistance, and entry zones. Combine fundamentals with technicals for better timing."),
+    React.createElement("div",{style:{display:"flex",gap:7,marginBottom:12,flexWrap:"wrap"}},
+      React.createElement("input",{value:ticker,onChange:ex=>setTicker(ex.target.value),placeholder:"e.g. NVDA",style:{background:C.bg,border:`1px solid ${C.b}`,borderRadius:7,color:C.tx,fontSize:12,padding:"8px 10px",outline:"none",width:100,textTransform:"uppercase"}}),
+      React.createElement("button",{onClick:analyze,disabled:loading||!ticker.trim(),style:{padding:"8px 14px",borderRadius:7,border:`1px solid ${C.ac}60`,background:loading?`${C.ac}08`:`${C.ac}18`,color:loading?C.mu:C.ac,fontSize:12,cursor:loading?"not-allowed":"pointer"}},"Analyze →")
+    ),
+    error&&React.createElement("div",{style:{color:C.re,fontSize:10,marginBottom:8}},error),
+    loading&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,color:C.mu,fontSize:11,padding:"8px 0"}},React.createElement("div",{style:{width:13,height:13,border:`2px solid ${C.b}`,borderTop:`2px solid ${C.ac}`,borderRadius:"50%",animation:"spin 0.8s linear infinite"}}),"Fetching technical data…"),
+    data&&React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:9}},
+      React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}},
+        React.createElement("div",null,React.createElement("div",{style:{fontSize:16,fontWeight:700,color:C.tx}},data.ticker),data.price&&React.createElement("div",{style:{fontSize:11,color:C.mu}},"$"+data.price)),
+        React.createElement("div",{style:{padding:"5px 13px",borderRadius:6,border:`1px solid ${sc(data.overallSignal)}60`,background:`${sc(data.overallSignal)}15`,color:sc(data.overallSignal),fontSize:12,fontWeight:700}},data.overallSignal)
+      ),
+      React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}},
+        [["Trend",`${data.trend} (${data.trendStrength})`,sc(data.trend)],["RSI",`${data.rsi} — ${data.rsiSignal}`,sc(data.rsiSignal)],["MACD",data.macd,sc(data.macd)],["Volume",data.volume,C.mu]].map(([l,v,c])=>
+          React.createElement("div",{key:l,style:{background:C.bg,borderRadius:7,padding:"7px 9px",border:`1px solid ${C.b}`}},
+            React.createElement("div",{style:{fontSize:9,color:C.mu,marginBottom:2}},l),
+            React.createElement("div",{style:{fontSize:11,fontWeight:600,color:c}},v)
+          )
+        )
+      ),
+      (data.goldenCross||data.deathCross)&&React.createElement("div",{style:{background:data.goldenCross?`${C.gr}10`:`${C.re}10`,border:`1px solid ${data.goldenCross?C.gr:C.re}30`,borderRadius:7,padding:"8px 11px",fontSize:11,fontWeight:700,color:data.goldenCross?C.gr:C.re}},data.goldenCross?"✦ Golden Cross — Bullish: 50MA crossed above 200MA":"✦ Death Cross — Bearish: 50MA crossed below 200MA"),
+      React.createElement("div",{style:{background:C.s2,border:`1px solid ${C.b}`,borderRadius:8,padding:"11px 13px"}},
+        React.createElement("div",{style:{fontSize:9,color:C.ac,letterSpacing:2,marginBottom:8}},"TRADE SETUP"),
+        [["Entry Zone",data.entryZone,C.gr],["Stop Loss",data.stopLoss,C.re],["Price Target",data.priceTarget,C.go],["Support",data.support?"$"+data.support:null,C.gr],["Resistance",data.resistance?"$"+data.resistance:null,C.re]].filter(([,v])=>v).map(([l,v,c])=>
+          React.createElement("div",{key:l,style:{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:`1px solid ${C.b}`}},
+            React.createElement("span",{style:{fontSize:11,color:C.di}},l),
+            React.createElement("span",{style:{fontSize:11,fontWeight:600,color:c}},v)
+          )
+        )
+      ),
+      data.keyLevel&&React.createElement("div",{style:{background:`${C.go}08`,border:`1px solid ${C.go}25`,borderRadius:7,padding:"7px 11px"}},React.createElement("span",{style:{fontSize:9,color:C.go,letterSpacing:2}},"KEY LEVEL: "),React.createElement("span",{style:{fontSize:11,color:C.di}},data.keyLevel)),
+      data.summary&&React.createElement("div",{style:{background:C.bg,borderRadius:7,padding:"9px 11px",border:`1px solid ${C.b}`}},React.createElement("div",{style:{fontSize:9,letterSpacing:2,color:C.pu,textTransform:"uppercase",marginBottom:4}},"Analysis"),React.createElement("p",{style:{fontSize:11,color:C.di,lineHeight:1.8,margin:0}},data.summary))
+    )
+  );
+}
+
+// ═══ POSITION SIZING ══════════════════════════════════════
+function PositionSizer(){
+  const [f,setF]=useState({accountSize:"",riskPct:"1",entryPrice:"",stopLoss:"",targetPrice:"",ticker:""});
+  const [result,setResult]=useState(null);
+  const [aiTake,setAiTake]=useState("");
+  const [loading,setLoading]=useState(false);
+  const set=(k,v)=>setF(p=>({...p,[k]:v}));
+  const n=(k)=>parseFloat(f[k])||null;
+  const calculate=async()=>{
+    const account=n("accountSize"),risk=n("riskPct"),entry=n("entryPrice"),stop=n("stopLoss"),target=n("targetPrice");
+    if(!account||!risk||!entry||!stop)return;
+    const riskAmt=account*(risk/100),riskPS=Math.abs(entry-stop),shares=riskPS>0?Math.floor(riskAmt/riskPS):0;
+    const totalPos=shares*entry,posPct=(totalPos/account)*100,rr=target?Math.abs(target-entry)/riskPS:null,gain=target&&shares?(target-entry)*shares:null,maxLoss=shares*riskPS;
+    setResult({riskAmt,riskPS,shares,totalPos,posPct,rr,gain,maxLoss,entry,stop,target});
+    setLoading(true);
+    const txt=await claude(`Position sizing for ${f.ticker||"a stock"}: Account $${account.toLocaleString()}, risking ${risk}% ($${riskAmt.toFixed(0)}), entry $${entry}, stop $${stop}${target?`, target $${target}`:""}. ${shares} shares, position $${totalPos.toFixed(0)} (${posPct.toFixed(1)}% of account)${rr?`, R:R ${rr.toFixed(2)}:1`:""}. In 2 sentences: is this sizing sensible for a retail side trader, and one specific improvement.`);
+    setAiTake(txt);setLoading(false);
+  };
+  const rrc=result?.rr>=3?C.gr:result?.rr>=2?C.go:C.re;
+  return React.createElement("div",null,
+    React.createElement("div",{style:{fontSize:9,letterSpacing:3,color:C.ac,textTransform:"uppercase",marginBottom:6}},"📐 Position Sizing"),
+    React.createElement("p",{style:{fontSize:11,color:C.di,marginBottom:12,lineHeight:1.6}},"Calculate exactly how many shares to buy based on your account size and risk tolerance. Most traders lose money by sizing positions wrong, not by picking wrong stocks."),
+    React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}},
+      ...[["accountSize","Account Size ($)","e.g. 10000"],["riskPct","Risk Per Trade (%)","e.g. 1"],["ticker","Ticker (optional)","e.g. NVDA"],["entryPrice","Entry Price ($)","e.g. 875"],["stopLoss","Stop Loss ($)","e.g. 850"],["targetPrice","Price Target ($)","e.g. 950"]].map(([k,l,p])=>
+        React.createElement("div",{key:k},
+          React.createElement("div",{style:{fontSize:9,color:C.mu,marginBottom:3}},l.toUpperCase()),
+          React.createElement("input",{value:f[k],onChange:ex=>set(k,ex.target.value),placeholder:p,style:{background:C.bg,border:`1px solid ${C.b}`,borderRadius:7,color:C.tx,fontSize:11,padding:"7px 9px",outline:"none",width:"100%",boxSizing:"border-box"}})
+        )
+      )
+    ),
+    React.createElement("button",{onClick:calculate,disabled:!f.accountSize||!f.entryPrice||!f.stopLoss,style:{padding:"8px 16px",borderRadius:7,border:`1px solid ${C.ac}60`,background:`${C.ac}18`,color:C.ac,fontSize:12,cursor:"pointer",marginBottom:12}},"Calculate →"),
+    result&&React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:9}},
+      React.createElement("div",{style:{background:`${C.ac}10`,border:`1px solid ${C.ac}40`,borderRadius:9,padding:"13px 15px",textAlign:"center"}},
+        React.createElement("div",{style:{fontSize:9,color:C.mu,letterSpacing:2,marginBottom:3}},"SHARES TO BUY"),
+        React.createElement("div",{style:{fontSize:34,fontWeight:700,color:C.ac,lineHeight:1}},""+result.shares),
+        React.createElement("div",{style:{fontSize:11,color:C.di,marginTop:3}},"$"+result.totalPos.toLocaleString(undefined,{maximumFractionDigits:0})+" total · "+result.posPct.toFixed(1)+"% of account")
+      ),
+      React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}},
+        [["Max Loss","$"+result.maxLoss.toFixed(0),C.re],["Risk/Share","$"+result.riskPS.toFixed(2),C.re],result.rr?["R:R Ratio",result.rr.toFixed(2)+":1",rrc]:null,result.gain?["Expected Gain","$"+result.gain.toFixed(0),C.gr]:null].filter(Boolean).map(([l,v,c])=>
+          React.createElement("div",{key:l,style:{background:C.bg,borderRadius:7,padding:"8px 10px",border:`1px solid ${C.b}`,textAlign:"center"}},
+            React.createElement("div",{style:{fontSize:8,color:C.mu,marginBottom:2,letterSpacing:1}},l.toUpperCase()),
+            React.createElement("div",{style:{fontSize:13,fontWeight:700,color:c}},v)
+          )
+        )
+      ),
+      result.rr&&React.createElement("div",{style:{background:`${rrc}08`,border:`1px solid ${rrc}30`,borderRadius:7,padding:"7px 11px",fontSize:11,color:rrc,fontWeight:700}},result.rr>=3?"✓ Excellent R:R — professional traders target 3:1 minimum":result.rr>=2?"✓ Acceptable R:R — 2:1 is the minimum most traders use":"⚠ Poor R:R — you risk more than you stand to gain. Move target up or stop closer."),
+      loading&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,color:C.mu,fontSize:11}},React.createElement("div",{style:{width:13,height:13,border:`2px solid ${C.b}`,borderTop:`2px solid ${C.ac}`,borderRadius:"50%",animation:"spin 0.8s linear infinite"}}),"Getting AI assessment…"),
+      aiTake&&React.createElement("div",{style:{background:C.bg,borderRadius:7,padding:"9px 11px",border:`1px solid ${C.b}`}},React.createElement("div",{style:{fontSize:9,letterSpacing:2,color:C.pu,textTransform:"uppercase",marginBottom:4}},"AI Assessment"),React.createElement("p",{style:{fontSize:11,color:C.di,lineHeight:1.8,margin:0}},aiTake))
+    )
+  );
+}
+
+// ═══ NEWS SENTIMENT ═══════════════════════════════════════
+function NewsSentiment(){
+  const [ticker,setTicker]=useState("");
+  const [data,setData]=useState(null);
+  const [loading,setLoading]=useState(false);
+  const [error,setError]=useState("");
+  const fetch_=useCallback(async()=>{
+    if(!ticker.trim())return;
+    setLoading(true);setError("");setData(null);
+    const t=ticker.trim().toUpperCase();
+    const prompt=`Use web search to find latest news and sentiment for ${t} stock in last 7 days. Search "${t} stock news" and "${t} analyst Reddit sentiment". Return ONLY JSON: {"ticker":"${t}","overallSentiment":"Bullish|Bearish|Neutral","sentimentScore":<-100 to 100>,"headlines":[{"title":"<headline>","source":"<source>","date":"<date>","sentiment":"Positive|Negative|Neutral","impact":"High|Medium|Low"}],"redditSentiment":"Bullish|Bearish|Neutral","institutionalActivity":"Buying|Selling|Neutral","insiderActivity":"Buying|Selling|None reported","keyThemes":["<theme1>","<theme2>"],"narrativeShift":"<one sentence on recent story change>","tradingImplication":"<one sentence trading takeaway>"}`;
+    try{
+      const raw=await claude(prompt,"You are a financial sentiment analyst. Use web search for real current news. Return only valid JSON.");
+      setData(JSON.parse(raw.replace(/```json|```/g,"").trim()));
+    }catch{setError("Could not fetch sentiment. Try again.");}
+    setLoading(false);
+  },[ticker]);
+  const sc=(s)=>s==="Bullish"||s==="Positive"?C.gr:s==="Bearish"||s==="Negative"?C.re:C.go;
+  const ic=(i)=>i==="High"?C.re:i==="Medium"?C.go:C.mu;
+  return React.createElement("div",null,
+    React.createElement("div",{style:{fontSize:9,letterSpacing:3,color:C.ac,textTransform:"uppercase",marginBottom:6}},"📰 News & Sentiment"),
+    React.createElement("p",{style:{fontSize:11,color:C.di,marginBottom:12,lineHeight:1.6}},"Real-time news sentiment, Reddit buzz, institutional activity, and narrative shifts. Catch story changes before they move the price."),
+    React.createElement("div",{style:{display:"flex",gap:7,marginBottom:12,flexWrap:"wrap"}},
+      React.createElement("input",{value:ticker,onChange:ex=>setTicker(ex.target.value),placeholder:"e.g. NVDA",style:{background:C.bg,border:`1px solid ${C.b}`,borderRadius:7,color:C.tx,fontSize:12,padding:"8px 10px",outline:"none",width:100,textTransform:"uppercase"}}),
+      React.createElement("button",{onClick:fetch_,disabled:loading||!ticker.trim(),style:{padding:"8px 14px",borderRadius:7,border:`1px solid ${C.ac}60`,background:loading?`${C.ac}08`:`${C.ac}18`,color:loading?C.mu:C.ac,fontSize:12,cursor:loading?"not-allowed":"pointer"}},"Analyze →")
+    ),
+    error&&React.createElement("div",{style:{color:C.re,fontSize:10,marginBottom:8}},error),
+    loading&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,color:C.mu,fontSize:11,padding:"8px 0"}},React.createElement("div",{style:{width:13,height:13,border:`2px solid ${C.b}`,borderTop:`2px solid ${C.ac}`,borderRadius:"50%",animation:"spin 0.8s linear infinite"}}),"Scanning news and sentiment…"),
+    data&&React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:9}},
+      React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}},
+        [["Overall Sentiment",data.overallSentiment],["Reddit",data.redditSentiment],["Institutional",data.institutionalActivity],["Insider Activity",data.insiderActivity]].map(([l,v])=>
+          React.createElement("div",{key:l,style:{background:C.s2,borderRadius:8,padding:"8px 10px",border:`1px solid ${sc(v)}25`}},
+            React.createElement("div",{style:{fontSize:9,color:C.mu,marginBottom:2}},l.toUpperCase()),
+            React.createElement("div",{style:{fontSize:11,fontWeight:700,color:sc(v)}},v)
+          )
+        )
+      ),
+      React.createElement("div",{style:{background:C.s2,borderRadius:8,padding:"9px 11px",border:`1px solid ${C.b}`}},
+        React.createElement("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:5}},
+          React.createElement("span",{style:{fontSize:10,color:C.mu}},"Sentiment Score"),
+          React.createElement("span",{style:{fontSize:13,fontWeight:700,color:sc(data.overallSentiment)}},(data.sentimentScore>0?"+":"")+data.sentimentScore)
+        ),
+        React.createElement("div",{style:{height:6,background:C.b,borderRadius:3,overflow:"hidden",position:"relative"}},
+          React.createElement("div",{style:{position:"absolute",left:"50%",top:0,height:"100%",width:`${Math.abs(data.sentimentScore/2)}%`,marginLeft:data.sentimentScore<0?`-${Math.abs(data.sentimentScore/2)}%`:"0",background:sc(data.overallSentiment),borderRadius:3}})
+        )
+      ),
+      data.keyThemes?.length>0&&React.createElement("div",{style:{display:"flex",gap:5,flexWrap:"wrap"}},
+        data.keyThemes.map((t,i)=>React.createElement("span",{key:i,style:{fontSize:10,padding:"2px 8px",borderRadius:10,background:`${C.ac}15`,border:`1px solid ${C.ac}30`,color:C.ac}},t))
+      ),
+      data.headlines?.length>0&&React.createElement("div",null,
+        React.createElement("div",{style:{fontSize:9,color:C.mu,letterSpacing:2,marginBottom:6}},"RECENT HEADLINES"),
+        data.headlines.slice(0,5).map((h,i)=>React.createElement("div",{key:i,style:{background:C.s2,borderRadius:7,padding:"7px 9px",marginBottom:5,border:`1px solid ${ic(h.impact)}20`}},
+          React.createElement("div",{style:{display:"flex",justifyContent:"space-between",gap:5,marginBottom:3,flexWrap:"wrap"}},
+            React.createElement("span",{style:{fontSize:9,color:ic(h.impact),"background":`${ic(h.impact)}15`,padding:"1px 4px",borderRadius:3}},h.impact),
+            React.createElement("span",{style:{fontSize:9,color:sc(h.sentiment),fontWeight:700}},h.sentiment),
+            React.createElement("span",{style:{fontSize:9,color:C.mu}},h.date)
+          ),
+          React.createElement("div",{style:{fontSize:11,color:C.tx,lineHeight:1.4}},h.title),
+          React.createElement("div",{style:{fontSize:9,color:C.mu,marginTop:2}},h.source)
+        ))
+      ),
+      React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:6}},
+        data.narrativeShift&&React.createElement("div",{style:{background:`${C.go}08`,border:`1px solid ${C.go}25`,borderRadius:7,padding:"7px 10px"}},React.createElement("span",{style:{fontSize:9,color:C.go,letterSpacing:2}},"NARRATIVE: "),React.createElement("span",{style:{fontSize:11,color:C.di}},data.narrativeShift)),
+        data.tradingImplication&&React.createElement("div",{style:{background:`${C.pu}08`,border:`1px solid ${C.pu}25`,borderRadius:7,padding:"7px 10px"}},React.createElement("span",{style:{fontSize:9,color:C.pu,letterSpacing:2}},"IMPLICATION: "),React.createElement("span",{style:{fontSize:11,color:C.di}},data.tradingImplication))
+      )
+    )
+  );
+}
+
+// ═══ TOOLKIT (updated with all tools) ════════════════════
+function Toolkit({wl}){
+  const [tool,setTool]=useState("briefing");
+  const tools=[
+    {id:"briefing",l:"🤖 Morning Brief",C:()=>React.createElement(MorningBriefing,{wl})},
+    {id:"scorer",l:"🎯 AI Scorer",C:AIScorer},
+    {id:"technicals",l:"📈 Technicals",C:TechnicalSignals},
+    {id:"news",l:"📰 Sentiment",C:NewsSentiment},
+    {id:"sizing",l:"📐 Size",C:PositionSizer},
+    {id:"earnings",l:"📅 Earnings",C:()=>React.createElement(EarningsCalendar,{wl})},
+    {id:"h2h",l:"⚔️ Compare",C:HeadToHead},
+    {id:"checklist",l:"✅ Checklist",C:Checklist},
+    {id:"options",l:"📊 Options",C:OptionsAnalyzer},
+  ];
+  const Comp=tools.find(t=>t.id===tool)?.C;
+  return React.createElement("div",{style:{display:"flex",flexDirection:"column",height:"100%"}},
+    React.createElement("div",{style:{display:"flex",gap:4,padding:"7px 12px",borderBottom:`1px solid ${C.b}`,background:C.s1,overflowX:"auto",flexShrink:0,WebkitOverflowScrolling:"touch"}},
+      tools.map(t=>React.createElement("button",{key:t.id,onClick:()=>setTool(t.id),style:{padding:"5px 10px",borderRadius:6,border:`1px solid ${tool===t.id?C.ac:C.b}`,background:tool===t.id?`${C.ac}15`:"transparent",color:tool===t.id?C.ac:C.mu,fontSize:10,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}},t.l))
+    ),
+    React.createElement("div",{className:"sa",style:{padding:"10px 12px",paddingBottom:24}},
+      React.createElement("div",{style:{background:C.s1,border:`1px solid ${C.b}`,borderRadius:12,padding:14}},
+        Comp&&React.createElement(Comp,null)
+      )
+    )
+  );
+}
+
+// ═══════════ KEY SETUP SCREEN ════════════════════════════
+function KeySetup({onSave}){
+  const [key,setKey]=useState("");
+  const [testing,setTesting]=useState(false);
+  const [err,setErr]=useState("");
+  const save=async()=>{
+    const k=key.trim();
+    if(!k.startsWith("sk-ant-")){setErr("That doesn't look like an Anthropic key — it should start with sk-ant-");return;}
+    setTesting(true);setErr("");
+    try{
+      const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",
+        headers:{"Content-Type":"application/json","x-api-key":k,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+        body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:10,messages:[{role:"user",content:"Hi"}]})});
+      if(r.status===200||r.status===400){setAK(k);onSave();}
+      else if(r.status===401){setErr("Invalid API key — double check you copied the full key from console.anthropic.com");}
+      else{setErr(`Unexpected error (${r.status}) — try again`);}
+    }catch(e){setErr("Connection failed — make sure you're on a real hosted URL (github.io), not a local file");}
+    setTesting(false);
+  };
+  return React.createElement("div",{style:{height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:C.bg,padding:20}},
+    React.createElement("div",{style:{maxWidth:340,width:"100%"}},
+      React.createElement("div",{style:{fontSize:9,color:C.mu,letterSpacing:3,textTransform:"uppercase",marginBottom:8}},"ONE-TIME SETUP"),
+      React.createElement("h2",{style:{fontFamily:"Georgia,serif",fontSize:20,color:C.ac,marginBottom:10,letterSpacing:-0.5}},"Connect Your Anthropic Key"),
+      React.createElement("p",{style:{fontSize:12,color:C.di,lineHeight:1.7,marginBottom:18}},"The AI Scorer, Head-to-Head, and live prices all run on Claude. You need a free Anthropic API key — your key stays in your browser only, never sent anywhere else."),
+      React.createElement("div",{style:{background:C.s1,border:`1px solid ${C.b}`,borderRadius:10,padding:14,marginBottom:12}},
+        React.createElement("div",{style:{fontSize:10,color:C.go,fontWeight:700,marginBottom:8}},"Step 1 — Get your key"),
+        React.createElement("p",{style:{fontSize:11,color:C.di,lineHeight:1.6,margin:"0 0 8px"}},"Go to:"),
+        React.createElement("div",{style:{background:C.bg,border:`1px solid ${C.ac}30`,borderRadius:6,padding:"7px 12px",fontSize:12,color:C.ac,textAlign:"center",marginBottom:8,letterSpacing:0.5}},"console.anthropic.com"),
+        React.createElement("p",{style:{fontSize:11,color:C.di,lineHeight:1.6,margin:0}},"Sign in → API Keys → Create Key → Copy it.")
+      ),
+      React.createElement("div",{style:{background:C.s1,border:`1px solid ${C.b}`,borderRadius:10,padding:14,marginBottom:14}},
+        React.createElement("div",{style:{fontSize:10,color:C.go,fontWeight:700,marginBottom:8}},"Step 2 — Paste it here"),
+        React.createElement(Inp,{value:key,onChange:setKey,placeholder:"sk-ant-api03-...",style:{width:"100%",boxSizing:"border-box",fontSize:11}}),
+        err&&React.createElement("div",{style:{color:C.re,fontSize:10,marginTop:6,lineHeight:1.5}},err)
+      ),
+      React.createElement(Btn,{onClick:save,disabled:testing||!key.trim(),full:true,color:C.ac},testing?"Verifying…":"Save Key & Launch →"),
+      React.createElement("p",{style:{fontSize:9,color:C.mu,textAlign:"center",marginTop:12,lineHeight:1.6}},"Key saved in your browser's local storage only. ~$0.01 per analysis. You control your own usage at console.anthropic.com")
+    )
+  );
+}
+
+// ═══════════ ROOT APP ════════════════════════════════════
+function App(){
+  const [page,setPage]=useState("guide");
+  const [wl,setWl]=useState(lWL);
+  const [prices,setPrices]=useState({});
+  const [notifications,setNotifications]=useState(lNF);
+  const [hasKey,setHasKey]=useState(()=>!!getAK());
+  const wlCount=Object.keys(wl).length;
+  const totalStocks=SECTORS.reduce((a,s)=>a+s.stocks.length,0);
+
+  if(!hasKey) return React.createElement(KeySetup,{onSave:()=>setHasKey(true)});
+
+  return React.createElement("div",{style:{height:"100%",display:"flex",flexDirection:"column",background:C.bg,color:C.tx}},
+    React.createElement("div",{style:{borderBottom:`1px solid ${C.b}`,padding:"10px 14px 8px",background:`linear-gradient(180deg,${C.s1} 0%,${C.bg} 100%)`,flexShrink:0}},
+      React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:6}},
+        React.createElement("div",null,
+          React.createElement("div",{style:{fontSize:8,letterSpacing:3,color:C.mu,marginBottom:2,textTransform:"uppercase"}},"AI INVESTMENT HUB · 2026"),
+          React.createElement("h1",{style:{fontSize:"clamp(14px,4vw,20px)",fontWeight:700,margin:0,fontFamily:"Georgia,serif",letterSpacing:-0.5}},
+            React.createElement("span",{style:{color:C.ac}},"AI")," Investment Hub"
+          )
+        ),
+        React.createElement("div",{style:{display:"flex",gap:4,alignItems:"center"}},
+          [["guide",`📊 Guide${wlCount>0?` ⭐${wlCount}`:""}`,C.ac],["toolkit","🔬 Toolkit",C.pu]].map(([id,lb,co])=>
+            React.createElement("button",{key:id,onClick:()=>setPage(id),style:{padding:"6px 13px",borderRadius:7,border:`1px solid ${page===id?co:C.b}`,background:page===id?`${co}18`:"transparent",color:page===id?co:C.mu,fontSize:11,cursor:"pointer"}},lb)
+          ),
+          React.createElement("button",{title:"Change API key",onClick:()=>{localStorage.removeItem(AK);setHasKey(false);},style:{padding:"5px 8px",borderRadius:6,border:`1px solid ${C.b}`,background:"transparent",color:C.mu,fontSize:12,cursor:"pointer"}},"⚙️")
+        )
+      ),
+      React.createElement("div",{style:{marginTop:3,fontSize:9,color:C.mu}},
+        page==="guide"?`9 sectors · ${totalStocks} stocks · Live prices · Watchlist`:"AI Scorer · Head-to-Head · Checklist · Options R/R · Powered by Claude"
+      )
+    ),
+    React.createElement("div",{style:{flex:1,minHeight:0,display:"flex",flexDirection:"column"}},
+      page==="guide"&&React.createElement(Guide,{wl,setWl,prices,setPrices,goToolkit:()=>setPage("toolkit"),notifications,setNotifications}),
+      page==="toolkit"&&React.createElement(Toolkit,{wl})
+    ),
+    React.createElement("div",{style:{borderTop:`1px solid ${C.b}`,padding:"5px 14px",background:C.s1,flexShrink:0}},
+      React.createElement("p",{style:{textAlign:"center",fontSize:9,color:C.mu,margin:0}},"Research only · Not financial advice · Options involve substantial risk of loss")
+    )
+  );
+}
+
+ReactDOM.render(React.createElement(App,null),document.getElementById("root"));
+</script>
+</body>
+</html>
