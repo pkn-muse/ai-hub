@@ -249,7 +249,7 @@ async function fetchPrices(tickers){
   for(let i=0;i<needed.length;i+=8)batches.push(needed.slice(i,i+8));
   await Promise.all(batches.map(async batch=>{
     try{
-      const prompt=`Use web_search to find the current stock price and today's percentage change for these tickers: ${batch.join(", ")}. Return ONLY a JSON object like: {"NVDA":{"price":875.50,"pct":1.23},"AAPL":{"price":213.40,"pct":-0.45}}. Use the most recent market price available. No other text.`;
+      const prompt=`Current price and day % change for: ${batch.join(", ")}. JSON only: {"TICKER":{"price":0.00,"pct":0.00}}`;
       const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":getAK(),"anthropic-dangerous-direct-browser-access":"true","anthropic-version":"2023-06-01","anthropic-beta":"web-search-2025-03-05"},
         body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:500,
           tools:[{type:"web_search_20250305",name:"web_search"}],
@@ -277,9 +277,7 @@ async function fetchPrices(tickers){
 // Used by AI Scorer and Head-to-Head in the Toolkit
 async function yahooFull(ticker){
   try{
-    const prompt=`Use web_search to find current financial data for stock ticker ${ticker}. Search for "${ticker} stock price PE ratio revenue growth" and "${ticker} stock fundamentals beta 52 week". Return ONLY this JSON object with real current values (use null if not found):
-{"name":"<company name>","price":<current price>,"change":<day change as decimal e.g. 0.012>,"pe":<trailing PE>,"fwdPe":<forward PE>,"peg":<PEG ratio>,"ps":<price to sales>,"revGrowth":<revenue growth as decimal e.g. 0.23>,"grossMargin":<gross margin as decimal>,"operatingMargin":<operating margin decimal>,"debtToEquity":<debt to equity ratio>,"targetPrice":<analyst consensus price target>,"beta":<beta>,"week52High":<52 week high>,"week52Low":<52 week low>,"recommendation":"buy|hold|sell|strongBuy|strongSell"}
-No markdown. No extra text. Only the JSON.`;
+    const prompt=`Search web for ${ticker} stock current data. Return JSON only: {"name":"<name>","price":<num>,"change":<decimal>,"pe":<num>,"fwdPe":<num>,"peg":<num>,"ps":<num>,"revGrowth":<decimal>,"grossMargin":<decimal>,"operatingMargin":<decimal>,"debtToEquity":<num>,"targetPrice":<num>,"beta":<num>,"week52High":<num>,"week52Low":<num>,"recommendation":"buy|hold|sell"}. Use null for unknown fields.`;
     const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":getAK(),"anthropic-dangerous-direct-browser-access":"true","anthropic-version":"2023-06-01","anthropic-beta":"web-search-2025-03-05"},
       body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:600,
         tools:[{type:"web_search_20250305",name:"web_search"}],
@@ -313,7 +311,7 @@ async function claudeSearch(prompt,sys){
       "anthropic-version":"2023-06-01",
       "anthropic-beta":"web-search-2025-03-05"
     },
-    body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:2000,
+    body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1500,
       tools:[{type:"web_search_20250305",name:"web_search"}],
       system:sys||"You are a financial analyst with web search access. Always search for current data, then return ONLY valid JSON. No markdown, no explanation outside the JSON.",
       messages:[{role:"user",content:prompt}]})});
@@ -666,9 +664,9 @@ function AIScorer(){
     const d=await yahooFull(t);
     if(!d||!d.price){setError(`Could not get data for "${t}". Check ticker spelling (e.g. NVDA, AAPL, TSLA). The web search may have timed out — try again.`);setLoading(false);return;}
     setData(d);
-    const prompt=`Analyze ${t} (${d.name}) as an AI sector investment.\nPrice: $${d.price?.toFixed(2)} | Fwd P/E: ${d.fwdPe?.toFixed(1)||"N/A"} | PEG: ${d.peg?.toFixed(2)||"N/A"} | P/S: ${d.ps?.toFixed(2)||"N/A"}\nRev Growth: ${d.revGrowth?(d.revGrowth*100).toFixed(1)+"%":"N/A"} | Gross Margin: ${d.grossMargin?(d.grossMargin*100).toFixed(1)+"%":"N/A"} | Beta: ${d.beta?.toFixed(2)||"N/A"}\nAnalyst Target: $${d.targetPrice?.toFixed(2)||"N/A"} | 52W High: $${d.week52High?.toFixed(2)||"N/A"} | 52W Low: $${d.week52Low?.toFixed(2)||"N/A"}\nReturn ONLY JSON: {"valuation":<0-100>,"growth":<0-100>,"moat":<0-100>,"risk":<0-100>,"aiExposure":<0-100>,"overall":<0-100>,"verdict":"Buy|Hold|Avoid","oneLineSummary":"<20 words>","bull":"<one sentence>","bear":"<one sentence>","keyMetric":"<one metric>","winProb":<0-100>,"expectedReturn":"<e.g. +15% to +45% over 12 months>","downside":"<e.g. -10% to -25%>"}`;
+    const prompt=`Score ${t} (${d.name}) as AI investment. Data: price=$${d.price?.toFixed(2)},fwdPE=${d.fwdPe?.toFixed(1)||"?"}, peg=${d.peg?.toFixed(2)||"?"},ps=${d.ps?.toFixed(2)||"?"},revGrowth=${d.revGrowth?(d.revGrowth*100).toFixed(1)+"%":"?"},margin=${d.grossMargin?(d.grossMargin*100).toFixed(1)+"%":"?"},beta=${d.beta?.toFixed(2)||"?"},target=$${d.targetPrice?.toFixed(2)||"?"},52wH=$${d.week52High?.toFixed(2)||"?"},52wL=$${d.week52Low?.toFixed(2)||"?"}. JSON only: {"valuation":<0-100>,"growth":<0-100>,"moat":<0-100>,"risk":<0-100>,"aiExposure":<0-100>,"overall":<0-100>,"verdict":"Buy|Hold|Avoid","oneLineSummary":"<15 words>","bull":"<sentence>","bear":"<sentence>","keyMetric":"<metric>","winProb":<0-100>,"expectedReturn":"<range>","downside":"<range>"}`;
     try{
-      const raw=await claudeSearch(prompt,"You are a quantitative equity analyst. Search the web for real current financial data. Return only valid JSON, no markdown.");
+      const raw=await claudeSearch(prompt,"Quant analyst. Search web for current financial data. Return valid JSON only.");
       const sc=safeJSON(raw);
       if(!sc)throw new Error("parse");
       setScores(sc);
@@ -752,7 +750,7 @@ function HeadToHead(){
     if(!b||!b.price){setError(`Could not fetch ${tb.toUpperCase()}`);setLoading(false);return;}
     setDA(a);setDB(b);
     const prompt=`Compare ${ta.toUpperCase()} vs ${tb.toUpperCase()} as AI investments.\n${ta.toUpperCase()}: $${a.price?.toFixed(2)}, FwdPE ${a.fwdPe?.toFixed(1)||"N/A"}, PEG ${a.peg?.toFixed(2)||"N/A"}, RevGrowth ${a.revGrowth?(a.revGrowth*100).toFixed(1)+"%":"N/A"}, Margin ${a.grossMargin?(a.grossMargin*100).toFixed(1)+"%":"N/A"}, Beta ${a.beta?.toFixed(2)||"N/A"}, Target $${a.targetPrice?.toFixed(2)||"N/A"}\n${tb.toUpperCase()}: $${b.price?.toFixed(2)}, FwdPE ${b.fwdPe?.toFixed(1)||"N/A"}, PEG ${b.peg?.toFixed(2)||"N/A"}, RevGrowth ${b.revGrowth?(b.revGrowth*100).toFixed(1)+"%":"N/A"}, Margin ${b.grossMargin?(b.grossMargin*100).toFixed(1)+"%":"N/A"}, Beta ${b.beta?.toFixed(2)||"N/A"}, Target $${b.targetPrice?.toFixed(2)||"N/A"}\nReturn ONLY JSON: {"winner":"${ta.toUpperCase()} or ${tb.toUpperCase()}","winnerReason":"<one sentence>","valuePlay":"<ticker>","growthPlay":"<ticker>","lowerRisk":"<ticker>","analysis":"<3 sentences>","aScore":<0-100>,"bScore":<0-100>,"aWinProb":<0-100>,"bWinProb":<0-100>,"aExpectedReturn":"<range>","bExpectedReturn":"<range>"}`;
-    try{const raw=await claudeSearch(prompt,"You are a quantitative equity analyst. Search the web for current financial data. Return only valid JSON.");const parsed=safeJSON(raw);if(!parsed)throw new Error("parse failed");setV(parsed);}
+    try{const raw=await claudeSearch(prompt,"Quant analyst. Search web for current data. Return valid JSON only.");const parsed=safeJSON(raw);if(!parsed)throw new Error("parse failed");setV(parsed);}
     catch(err){setError("Comparison failed: "+(err?.message||"unknown error")+". Try again.");}
     setLoading(false);
   },[ta,tb]);
@@ -936,9 +934,9 @@ function MorningBriefing({wl}){
     if(!tickerStr)return;
     setLoading(true);setBriefing(null);
     const tickers=tickerStr;
-    const prompt=`You are an AI trading agent running a morning market briefing. Watchlist: ${tickers}. Use web search to find: (1) overnight price moves and pre-market activity, (2) breaking news or analyst changes in last 24h, (3) broader market sentiment today, (4) any unusual options activity. Return ONLY JSON (no markdown): {"marketMood":"Bullish|Neutral|Bearish","moodReason":"<one sentence>","topMover":"<ticker>","topMoverReason":"<why>","alerts":[{"ticker":"<t>","type":"News|Earnings|Upgrade|Downgrade|Technical","headline":"<brief>","impact":"Positive|Negative|Neutral","action":"Watch|Buy Dip|Take Profit|Avoid"}],"opportunities":[{"ticker":"<t>","setup":"<specific entry setup>","timeframe":"<today|this week|this month>"}],"risks":["<risk1>","<risk2>"],"agentSummary":"<3 sentences: overnight, what to watch, one actionable idea>"}`;
+    const prompt=`Search the web for current market news and prices for: ${tickers}. Return JSON only: {"marketMood":"Bullish|Neutral|Bearish","moodReason":"<sentence>","topMover":"<ticker>","topMoverReason":"<why>","alerts":[{"ticker":"<t>","type":"News|Upgrade|Downgrade|Earnings","headline":"<brief>","impact":"Positive|Negative|Neutral","action":"Watch|Buy Dip|Take Profit|Avoid"}],"opportunities":[{"ticker":"<t>","setup":"<entry setup>","timeframe":"today|this week|this month"}],"risks":["<risk1>","<risk2>"],"agentSummary":"<2 sentences: key move + one action>"}`;
     try{
-      const raw=await claudeSearch(prompt,"You are an AI trading agent. Search the web for real current market data. Return only valid JSON, no markdown.");
+      const raw=await claudeSearch(prompt,"Trading agent. Search web for current data. Return valid JSON only.");
       const parsed=safeJSON(raw);
       if(!parsed)throw new Error("parse failed");
       setBriefing(parsed);
@@ -1026,7 +1024,7 @@ function EarningsCalendar({wl}){
     const tickers=targets.slice(0,15).map(s=>s.t).join(", ");
     const prompt=`Use web search to find upcoming earnings dates and recent earnings results for: ${tickers}. Return ONLY JSON: {"upcoming":[{"ticker":"<t>","date":"<e.g. Jun 15>","daysAway":<number>,"estimate":"<EPS estimate>","importance":"High|Medium|Low"}],"recent":[{"ticker":"<t>","date":"<date>","result":"Beat|Miss|In-Line","epsSurprise":"<e.g. +12%>","stockMove":"<e.g. +8% next day>"}]}`;
     try{
-      const raw=await claudeSearch(prompt,"You are a financial data assistant. Search the web for real current earnings dates. Return only valid JSON, no markdown.");
+      const raw=await claudeSearch(prompt,"Financial analyst. Search web for earnings dates. Return valid JSON only.");
       const parsed=safeJSON(raw);
       setData(parsed||{upcoming:[],recent:[]});
     }catch{setData({upcoming:[],recent:[]});}
@@ -1095,7 +1093,7 @@ function TechnicalSignals(){
     const t=ticker.trim().toUpperCase();
     const prompt=`Use web search to find current technical analysis for ${t} stock. Search "${t} RSI MACD moving average support resistance". Return ONLY JSON: {"ticker":"${t}","price":<number>,"trend":"Uptrend|Downtrend|Sideways","trendStrength":"Strong|Moderate|Weak","rsi":<0-100>,"rsiSignal":"Overbought|Oversold|Neutral","macd":"Bullish|Bearish|Neutral","ma50":<price or null>,"ma200":<price or null>,"goldenCross":<true/false>,"deathCross":<true/false>,"support":<price or null>,"resistance":<price or null>,"volume":"Above Average|Below Average|Average","entryZone":"<price range>","stopLoss":"<price>","priceTarget":"<price>","overallSignal":"Strong Buy|Buy|Hold|Sell|Strong Sell","keyLevel":"<most important price level and why>","summary":"<2 sentences: current setup and what confirms a trade>"}`;
     try{
-      const raw=await claudeSearch(prompt,"You are a technical analyst. Search the web for real current technical data. Return only valid JSON, no markdown.");
+      const raw=await claudeSearch(prompt,"Technical analyst. Search web for current data. Return valid JSON only.");
       const parsed=safeJSON(raw);
       if(!parsed)throw new Error("parse");
       setData(parsed);
@@ -1210,7 +1208,7 @@ function NewsSentiment(){
     const t=ticker.trim().toUpperCase();
     const prompt=`Use web search to find latest news and sentiment for ${t} stock in last 7 days. Search "${t} stock news" and "${t} analyst Reddit sentiment". Return ONLY JSON: {"ticker":"${t}","overallSentiment":"Bullish|Bearish|Neutral","sentimentScore":<-100 to 100>,"headlines":[{"title":"<headline>","source":"<source>","date":"<date>","sentiment":"Positive|Negative|Neutral","impact":"High|Medium|Low"}],"redditSentiment":"Bullish|Bearish|Neutral","institutionalActivity":"Buying|Selling|Neutral","insiderActivity":"Buying|Selling|None reported","keyThemes":["<theme1>","<theme2>"],"narrativeShift":"<one sentence on recent story change>","tradingImplication":"<one sentence trading takeaway>"}`;
     try{
-      const raw=await claudeSearch(prompt,"You are a financial sentiment analyst. Search the web for real current news. Return only valid JSON, no markdown.");
+      const raw=await claudeSearch(prompt,"Sentiment analyst. Search web for current news. Return valid JSON only.");
       const parsed=safeJSON(raw);
       if(!parsed)throw new Error("parse");
       setData(parsed);
