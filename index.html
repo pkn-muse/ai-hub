@@ -251,7 +251,7 @@ async function fetchPrices(tickers){
     try{
       const prompt=`Use web_search to find the current stock price and today's percentage change for these tickers: ${batch.join(", ")}. Return ONLY a JSON object like: {"NVDA":{"price":875.50,"pct":1.23},"AAPL":{"price":213.40,"pct":-0.45}}. Use the most recent market price available. No other text.`;
       const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":getAK(),"anthropic-dangerous-direct-browser-access":"true","anthropic-version":"2023-06-01","anthropic-beta":"web-search-2025-03-05"},
-        body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:500,
+        body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:500,
           tools:[{type:"web_search_20250305",name:"web_search"}],
           system:"You are a financial data assistant. Return only valid JSON. No markdown fences, no explanation.",
           messages:[{role:"user",content:prompt}]})});
@@ -281,7 +281,7 @@ async function yahooFull(ticker){
 {"name":"<company name>","price":<current price>,"change":<day change as decimal e.g. 0.012>,"pe":<trailing PE>,"fwdPe":<forward PE>,"peg":<PEG ratio>,"ps":<price to sales>,"revGrowth":<revenue growth as decimal e.g. 0.23>,"grossMargin":<gross margin as decimal>,"operatingMargin":<operating margin decimal>,"debtToEquity":<debt to equity ratio>,"targetPrice":<analyst consensus price target>,"beta":<beta>,"week52High":<52 week high>,"week52Low":<52 week low>,"recommendation":"buy|hold|sell|strongBuy|strongSell"}
 No markdown. No extra text. Only the JSON.`;
     const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":getAK(),"anthropic-dangerous-direct-browser-access":"true","anthropic-version":"2023-06-01","anthropic-beta":"web-search-2025-03-05"},
-      body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:600,
+      body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:600,
         tools:[{type:"web_search_20250305",name:"web_search"}],
         system:"You are a financial data assistant. Use web search to find real, current stock data. Return only valid JSON. No markdown, no explanation.",
         messages:[{role:"user",content:prompt}]})});
@@ -296,7 +296,7 @@ No markdown. No extra text. Only the JSON.`;
 async function claude(prompt,sys){
   const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",
     headers:{"Content-Type":"application/json","x-api-key":getAK(),"anthropic-dangerous-direct-browser-access":"true","anthropic-version":"2023-06-01"},
-    body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,
+    body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,
       system:sys||"You are a sharp equity analyst specializing in AI stocks. Be concise and data-driven. No markdown, no asterisks.",
       messages:[{role:"user",content:prompt}]})});
   const d=await r.json();
@@ -313,7 +313,7 @@ async function claudeSearch(prompt,sys){
       "anthropic-version":"2023-06-01",
       "anthropic-beta":"web-search-2025-03-05"
     },
-    body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2000,
+    body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:2000,
       tools:[{type:"web_search_20250305",name:"web_search"}],
       system:sys||"You are a financial analyst with web search access. Always search for current data, then return ONLY valid JSON. No markdown, no explanation outside the JSON.",
       messages:[{role:"user",content:prompt}]})});
@@ -1308,7 +1308,7 @@ function KeySetup({onSave}){
     try{
       const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",
         headers:{"Content-Type":"application/json","x-api-key":k,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
-        body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:10,messages:[{role:"user",content:"Hi"}]})});
+        body:JSON.stringify({model:"claude-haiku-4-5",max_tokens:10,messages:[{role:"user",content:"Hi"}]})});
       if(r.status===200||r.status===400){setAK(k);onSave();}
       else if(r.status===401){setErr("Invalid API key — double check you copied the full key from console.anthropic.com");}
       else{setErr(`Unexpected error (${r.status}) — try again`);}
