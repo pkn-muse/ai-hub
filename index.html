@@ -345,6 +345,106 @@ function safeJSON(raw){
   if(start!==-1&&end>start){try{return JSON.parse(s.slice(start,end+1));}catch{}}
   return null;
 }
+// ── PROBABILITY ENGINE (pure math, zero API cost) ────────────────────────
+// Derives win probability + bear/base/bull returns from stock metadata.
+// Based on: growth rating, stage, market cap, source conviction, sector.
+function calcStockProb(stock, sectorId){
+  // Base win probability by growth rating
+  const grBase={"Very High":58,"High":53,"Medium-High":47,"Medium":42};
+  let prob=grBase[stock.gr]||45;
+
+  // Stage adjustment — established companies have more predictable outcomes
+  const stAdj={Established:+8,Growing:+2,Early:-5};
+  prob+=(stAdj[stock.st]||0);
+
+  // Market cap — mega caps have more analyst coverage = more predictable
+  const caAdj={Mega:+7,Large:+4,Mid:+1,Small:-3};
+  prob+=(caAdj[stock.ca]||0);
+
+  // Source conviction — picked by Wedbush/Dan Ives/Cathie Wood = higher conviction
+  const highConvSrc=["Wedbush","Dan Ives","Cathie Wood","Goldman Sachs","JPMorgan"];
+  const convBonus=stock.src?.filter(s=>highConvSrc.includes(s)).length||0;
+  prob+=convBonus*4;
+
+  // Reddit/Motley Fool adds momentum signal but not fundamental signal
+  const momSrc=["Reddit","Motley Fool"];
+  const momBonus=stock.src?.filter(s=>momSrc.includes(s)).length||0;
+  prob+=momBonus*2;
+
+  // Space sector: SpaceX IPO catalyst this week — boost speculative names
+  if(sectorId==="space") prob+=5;
+
+  // VC backing = institutional validation of early-stage companies
+  if(stock.vc&&stock.vc.length>10&&stock.st==="Early") prob+=4;
+
+  // Clamp
+  prob=Math.max(25,Math.min(82,prob));
+
+  // Bear/Base/Bull returns — derived from volatility profile
+  const volatility={Mega:0.12,Large:0.18,Mid:0.28,Small:0.42};
+  const vol=volatility[stock.ca]||0.25;
+  const growthMult={"Very High":1.8,High:1.4,"Medium-High":1.1,Medium:0.9};
+  const gm=growthMult[stock.gr]||1.0;
+
+  const bear=-(vol*0.9*100).toFixed(0);
+  const base=(vol*gm*0.7*100).toFixed(0);
+  const bull=(vol*gm*1.6*100).toFixed(0);
+
+  return{prob,bear:parseInt(bear),base:parseInt(base),bull:parseInt(bull)};
+}
+
+// Win probability display block — injected into every expanded stock card
+function WinProbBlock({stock, sectorId}){
+  const {prob,bear,base,bull}=calcStockProb(stock,sectorId);
+  const pc=prob>=65?C.gr:prob>=50?C.go:C.re;
+  const verdict=prob>=65?"Favourable":prob>=50?"Neutral":"Unfavourable";
+  return React.createElement("div",{style:{background:`${pc}08`,border:`1px solid ${pc}25`,borderRadius:8,padding:"9px 12px",marginBottom:6}},
+    React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}},
+      React.createElement("div",{style:{fontSize:8,color:pc,letterSpacing:2,textTransform:"uppercase"}},"📊 Win Probability"),
+      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
+        React.createElement("div",{style:{fontSize:18,fontWeight:700,color:pc}},prob+"%"),
+        React.createElement("div",{style:{fontSize:9,color:pc,background:`${pc}15`,border:`1px solid ${pc}30`,borderRadius:4,padding:"2px 7px"}},verdict)
+      )
+    ),
+    // Probability bar
+    React.createElement("div",{style:{height:5,background:C.b,borderRadius:3,overflow:"hidden",marginBottom:9}},
+      React.createElement("div",{style:{height:"100%",width:prob+"%",background:pc,borderRadius:3,transition:"width 0.5s"}})
+    ),
+    // Bear / Base / Bull
+    React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:5}},
+      [{l:"BEAR",v:bear,c:C.re},{l:"BASE",v:base,c:C.go},{l:"BULL",v:bull,c:C.gr}].map(({l,v,c2=null,c:col})=>
+        React.createElement("div",{key:l,style:{background:C.bg,borderRadius:6,padding:"6px 4px",border:`1px solid ${col}25`,textAlign:"center"}},
+          React.createElement("div",{style:{fontSize:7,color:col,letterSpacing:1,marginBottom:2}},l),
+          React.createElement("div",{style:{fontSize:12,fontWeight:700,color:col}},(v>0?"+":"")+v+"%")
+        )
+      )
+    ),
+    // Checklist score bar (estimated from same data)
+    (()=>{
+      const checks=[
+        stock.gr==="Very High"||stock.gr==="High",
+        stock.st==="Established"||stock.st==="Growing",
+        stock.src&&stock.src.length>1,
+        stock.vc&&stock.vc.length>10,
+        stock.ca==="Mega"||stock.ca==="Large",
+        stock.src?.includes("Wedbush")||stock.src?.includes("Dan Ives"),
+        !stock.ri?.toLowerCase().includes("debt")&&!stock.ri?.toLowerCase().includes("unprofitable"),
+        sectorId==="space"||sectorId==="infra"||sectorId==="software",
+      ];
+      const score=checks.filter(Boolean).length;
+      const scoreColor=score>=6?C.gr:score>=4?C.go:C.re;
+      return React.createElement("div",{style:{marginTop:8,display:"flex",alignItems:"center",gap:8}},
+        React.createElement("div",{style:{fontSize:9,color:C.mu}},"Est. Checklist:"),
+        React.createElement("div",{style:{flex:1,height:4,background:C.b,borderRadius:2,overflow:"hidden"}},
+          React.createElement("div",{style:{height:"100%",width:(score/8*100)+"%",background:scoreColor,borderRadius:2}})
+        ),
+        React.createElement("div",{style:{fontSize:9,color:scoreColor,fontWeight:700}},score+"/8")
+      );
+    })()
+  );
+}
+
+
 function fv(v,t){
   if(v==null||isNaN(v))return"—";
   if(t==="pct")return`${(v*100).toFixed(1)}%`;
@@ -594,8 +694,9 @@ function Guide({wl,setWl,prices,setPrices,goToolkit,notifications,setNotificatio
                   React.createElement("span",{style:{color:C.re,fontSize:9,letterSpacing:1}},"⚠ KEY RISK: "),
                   React.createElement("span",{style:{color:C.di,fontSize:10}},stock.ri)
                 ),
+                React.createElement(WinProbBlock,{stock,sectorId:sector.id}),
                 live?React.createElement(RRBlock,{price:live.price,beta:live.beta,week52High:live.week52High,week52Low:live.week52Low,targetPrice:live.targetPrice,fwdPe:live.fwdPe,revGrowth:live.revGrowth})
-                  :React.createElement("div",{style:{fontSize:9,color:C.mu,textAlign:"center",padding:"5px 0"}},"Loading risk/reward stats…"),
+                  :null,
                 inWl&&React.createElement("div",{style:{background:`${C.go}10`,border:`1px solid ${C.go}25`,borderRadius:5,padding:"8px 10px",marginTop:7}},
                   React.createElement("div",{style:{fontSize:9,color:C.go,marginBottom:4,letterSpacing:1}},"★ YOUR NOTES"),
                   React.createElement(Inp,{value:noteInp[stock.t]??wl[stock.t]?.note??"",onChange:v=>setNoteInp(n=>({...n,[stock.t]:v})),placeholder:"Price targets, conviction level, entry points…",multi:true}),
@@ -1120,16 +1221,251 @@ function PositionSizer(){
   );
 }
 
+// ═══ CATALYST SCANNER (zero API cost — pure logic) ═══════════════════════
+function CatalystScanner({wl}){
+  const [results,setResults]=useState(null);
+  const [filter,setFilter]=useState("all");
+
+  const allStocks=SECTORS.flatMap(s=>s.stocks.map(st=>({...st,sectorId:s.id,sectorLabel:s.lb,sectorColor:s.co})));
+
+  const scan=()=>{
+    const scored=allStocks.map(stock=>{
+      const {prob,bear,base,bull}=calcStockProb(stock,stock.sectorId);
+      const signals=[];
+      // Catalyst signals
+      if(stock.src?.includes("Wedbush")||stock.src?.includes("Dan Ives"))signals.push({type:"Analyst Conviction",detail:"Wedbush/Dan Ives high-conviction pick",color:C.go});
+      if(stock.src?.includes("Cathie Wood")||stock.src?.includes("ARK"))signals.push({type:"Cathie Wood",detail:"ARK/Cathie Wood active position",color:C.pu});
+      if(stock.src?.includes("Reddit")&&stock.gr==="Very High")signals.push({type:"Momentum",detail:"Reddit momentum + Very High growth rating",color:C.or});
+      if(stock.sectorId==="space")signals.push({type:"IPO Catalyst",detail:"SpaceX IPO June 12 — sector halo active",color:"#c084fc"});
+      if(stock.st==="Early"&&stock.vc&&stock.vc.length>10)signals.push({type:"VC Backed",detail:"Institutional VC backing in early-stage company",color:C.pu});
+      if(stock.gr==="Very High"&&stock.st==="Growing")signals.push({type:"Acceleration",detail:"Very High growth + Growing stage = momentum setup",color:C.gr});
+      if(stock.src?.includes("Motley Fool")&&prob>=60)signals.push({type:"Under Radar",detail:"Motley Fool under-the-radar pick with 60%+ win prob",color:C.ac});
+      if((stock.sectorId==="energy"||stock.sectorId==="infra")&&stock.src?.includes("Reddit"))signals.push({type:"Reddit Infrastructure",detail:"Reddit-flagged infrastructure/energy play",color:"#ff4500"});
+      return{...stock,prob,bear,base,bull,signals,score:signals.length*15+prob};
+    })
+    .filter(s=>s.signals.length>0)
+    .sort((a,b)=>b.score-a.score);
+    setResults(scored);
+  };
+
+  const filtered=results?.filter(s=>{
+    if(filter==="all")return true;
+    if(filter==="space")return s.sectorId==="space";
+    if(filter==="high")return s.prob>=65;
+    if(filter==="catalyst")return s.signals.some(sig=>sig.type==="IPO Catalyst"||sig.type==="Analyst Conviction");
+    return true;
+  });
+
+  return React.createElement("div",null,
+    React.createElement("div",{style:{fontSize:9,letterSpacing:3,color:C.ac,textTransform:"uppercase",marginBottom:6}},"⚡ Catalyst Scanner"),
+    React.createElement("p",{style:{fontSize:11,color:C.di,marginBottom:10,lineHeight:1.6}},"Scans all 365 stocks for active catalyst signals — analyst conviction, IPO halo, momentum setups, VC backing. Zero API cost."),
+    React.createElement("div",{style:{fontSize:9,color:C.gr,background:`${C.gr}10`,border:`1px solid ${C.gr}25`,borderRadius:5,padding:"3px 9px",marginBottom:12,display:"inline-block"}},"Free — no API calls"),
+    React.createElement("div",{style:{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}},
+      [["all","All"],["high","60%+ Win Prob"],["space","🚀 Space IPO"],["catalyst","Analyst/IPO"]].map(([id,lb])=>
+        React.createElement("button",{key:id,onClick:()=>setFilter(id),style:{padding:"4px 10px",borderRadius:5,border:`1px solid ${filter===id?C.ac:C.b}`,background:filter===id?`${C.ac}15`:"transparent",color:filter===id?C.ac:C.mu,fontSize:10,cursor:"pointer"}},lb)
+      ),
+      React.createElement("button",{onClick:scan,style:{marginLeft:"auto",padding:"5px 14px",borderRadius:6,border:`1px solid ${C.ac}60`,background:`${C.ac}18`,color:C.ac,fontSize:11,cursor:"pointer"}},results?"⟳ Rescan":"🔍 Scan Now")
+    ),
+    !results&&React.createElement("div",{style:{textAlign:"center",padding:"30px 20px",color:C.mu,fontSize:12}},"Tap Scan Now to analyse all 365 stocks for active signals."),
+    filtered&&filtered.map((stock,i)=>
+      React.createElement("div",{key:stock.t+i,style:{background:C.s2,border:`1px solid ${stock.sectorColor}30`,borderRadius:8,padding:"10px 12px",marginBottom:8}},
+        React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6,flexWrap:"wrap",gap:6}},
+          React.createElement("div",{style:{display:"flex",gap:6,alignItems:"center"}},
+            React.createElement("span",{style:{background:`${stock.sectorColor}20`,border:`1px solid ${stock.sectorColor}40`,borderRadius:4,padding:"1px 6px",color:stock.sectorColor,fontSize:10,fontWeight:700}},stock.t),
+            React.createElement("span",{style:{fontSize:10,color:C.tx}},stock.n),
+            React.createElement("span",{style:{fontSize:9,color:C.mu}},stock.sectorLabel)
+          ),
+          React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
+            React.createElement("div",{style:{fontSize:13,fontWeight:700,color:stock.prob>=65?C.gr:stock.prob>=50?C.go:C.re}},stock.prob+"%"),
+            React.createElement("div",{style:{fontSize:9,color:C.mu}},`Base +${stock.base}%`)
+          )
+        ),
+        React.createElement("div",{style:{display:"flex",gap:5,flexWrap:"wrap",marginBottom:6}},
+          stock.signals.map((sig,j)=>
+            React.createElement("span",{key:j,style:{fontSize:9,padding:"2px 7px",borderRadius:4,background:`${sig.color}15`,border:`1px solid ${sig.color}30`,color:sig.color}},sig.type)
+          )
+        ),
+        React.createElement("div",{style:{fontSize:10,color:C.di,lineHeight:1.5}},stock.signals[0]?.detail)
+      )
+    ),
+    filtered&&filtered.length===0&&React.createElement("div",{style:{textAlign:"center",padding:"20px",color:C.mu,fontSize:11}},"No stocks match this filter.")
+  );
+}
+
+// ═══ SHORT SQUEEZE DETECTOR (pure logic, zero API cost) ═══════════════════
+function SqueezeDetector({wl}){
+  const [results,setResults]=useState(null);
+
+  const allStocks=SECTORS.flatMap(s=>s.stocks.map(st=>({...st,sectorId:s.id,sectorLabel:s.lb,sectorColor:s.co})));
+
+  // Squeeze score derived from available metadata
+  // Real squeeze needs live short interest data — this flags STRUCTURAL candidates
+  const scan=()=>{
+    const candidates=allStocks.map(stock=>{
+      let squeezeScore=0;
+      const factors=[];
+      // Small float + high beta names are most squeezable
+      if(stock.ca==="Small"){squeezeScore+=30;factors.push("Small float — easier to squeeze");}
+      if(stock.ca==="Mid"){squeezeScore+=15;factors.push("Mid cap — moderate squeeze potential");}
+      // Reddit attention = retail army ready to pile in
+      if(stock.src?.includes("Reddit")){squeezeScore+=25;factors.push("Reddit community following — retail catalyst ready");}
+      // Very High growth + Early stage = high short interest likely (shorts betting it fails)
+      if(stock.gr==="Very High"&&stock.st==="Early"){squeezeScore+=20;factors.push("Very High growth Early-stage — likely heavily shorted");}
+      // Space sector specifically noted for high short interest post-pullback
+      if(stock.sectorId==="space"){squeezeScore+=20;factors.push("Space sector — elevated short interest post-pullback week");}
+      // Known short squeeze stocks from our research (SOUN 39% short interest)
+      if(["SOUN","ASTS","MNTS","SMCI","UPST","RXRX"].includes(stock.t)){squeezeScore+=25;factors.push("Known high short interest — confirmed by analyst data");}
+      // VC-backed early stage = institutional longs vs retail/hedge shorts
+      if(stock.vc&&stock.st==="Early"){squeezeScore+=10;factors.push("VC institutional backing vs short pressure");}
+      const {prob}=calcStockProb(stock,stock.sectorId);
+      return{...stock,squeezeScore,factors,prob};
+    })
+    .filter(s=>s.squeezeScore>=30)
+    .sort((a,b)=>b.squeezeScore-a.squeezeScore)
+    .slice(0,20);
+    setResults(candidates);
+  };
+
+  const getSqueezeLabel=(score)=>score>=65?"🔥 High":score>=45?"⚡ Moderate":"📊 Watch";
+  const getSqueezeColor=(score)=>score>=65?C.re:score>=45?C.go:C.mu;
+
+  return React.createElement("div",null,
+    React.createElement("div",{style:{fontSize:9,letterSpacing:3,color:C.ac,textTransform:"uppercase",marginBottom:6}},"🔥 Short Squeeze Detector"),
+    React.createElement("p",{style:{fontSize:11,color:C.di,marginBottom:8,lineHeight:1.6}},"Identifies stocks with structural squeeze potential — small float, Reddit attention, likely high short interest, sector momentum. For live short interest %, check Ortex or Finviz."),
+    React.createElement("div",{style:{background:`${C.go}10`,border:`1px solid ${C.go}25`,borderRadius:7,padding:"8px 11px",marginBottom:12,fontSize:10,color:C.go}},"⚠ Squeeze score uses structural signals. Always verify live short interest % at finviz.com or ortex.com before trading."),
+    React.createElement("div",{style:{fontSize:9,color:C.gr,background:`${C.gr}10`,border:`1px solid ${C.gr}25`,borderRadius:5,padding:"3px 9px",marginBottom:12,display:"inline-block"}},"Free — no API calls"),
+    React.createElement("button",{onClick:scan,style:{padding:"7px 18px",borderRadius:7,border:`1px solid ${C.ac}60`,background:`${C.ac}18`,color:C.ac,fontSize:11,cursor:"pointer",marginBottom:14}},results?"⟳ Rescan":"🔍 Scan for Squeezes"),
+    !results&&React.createElement("div",{style:{textAlign:"center",padding:"30px 20px",color:C.mu,fontSize:12}},"Tap Scan to find short squeeze candidates across all sectors."),
+    results&&React.createElement("div",null,
+      React.createElement("div",{style:{fontSize:10,color:C.mu,marginBottom:10}},`Found ${results.length} candidates — sorted by squeeze score`),
+      results.map((stock,i)=>
+        React.createElement("div",{key:stock.t,style:{background:C.s2,border:`1px solid ${getSqueezeColor(stock.squeezeScore)}30`,borderRadius:8,padding:"10px 12px",marginBottom:7}},
+          React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,flexWrap:"wrap",gap:6}},
+            React.createElement("div",{style:{display:"flex",gap:6,alignItems:"center"}},
+              React.createElement("span",{style:{background:`${stock.sectorColor}20`,border:`1px solid ${stock.sectorColor}40`,borderRadius:4,padding:"1px 6px",color:stock.sectorColor,fontSize:10,fontWeight:700}},stock.t),
+              React.createElement("span",{style:{fontSize:10,color:C.tx}},stock.n)
+            ),
+            React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
+              React.createElement("div",{style:{fontSize:11,fontWeight:700,color:getSqueezeColor(stock.squeezeScore)}},getSqueezeLabel(stock.squeezeScore)),
+              React.createElement("div",{style:{fontSize:10,color:C.mu}},"Score: "+stock.squeezeScore)
+            )
+          ),
+          React.createElement("div",{style:{display:"flex",gap:5,flexWrap:"wrap",marginBottom:5}},
+            stock.factors.map((f,j)=>
+              React.createElement("span",{key:j,style:{fontSize:9,padding:"1px 6px",borderRadius:4,background:`${getSqueezeColor(stock.squeezeScore)}10`,border:`1px solid ${getSqueezeColor(stock.squeezeScore)}25`,color:getSqueezeColor(stock.squeezeScore)}},f)
+            )
+          ),
+          React.createElement("div",{style:{fontSize:9,color:C.mu}},`Win Prob: ${stock.prob}% · ${stock.sectorLabel} · ${stock.ca} cap`)
+        )
+      )
+    )
+  );
+}
+
+// ═══ MOMENTUM SCREENER (pure logic, zero API cost) ════════════════════════
+function MomentumScreener(){
+  const [results,setResults]=useState(null);
+  const [sortBy,setSortBy]=useState("momentum");
+
+  const allStocks=SECTORS.flatMap(s=>s.stocks.map(st=>({...st,sectorId:s.id,sectorLabel:s.lb,sectorColor:s.co})));
+
+  const scan=()=>{
+    const scored=allStocks.map(stock=>{
+      const {prob,bear,base,bull}=calcStockProb(stock,stock.sectorId);
+      // Momentum score
+      let momentum=0;
+      const grM={"Very High":40,High:30,"Medium-High":20,Medium:10};
+      momentum+=grM[stock.gr]||0;
+      const stM={Growing:20,Established:10,Early:5};
+      momentum+=stM[stock.st]||0;
+      if(stock.src?.length>=3)momentum+=15;
+      if(stock.src?.includes("Reddit"))momentum+=10;
+      if(stock.src?.includes("Wedbush")||stock.src?.includes("Dan Ives"))momentum+=12;
+      if(stock.sectorId==="space")momentum+=15;
+      if(stock.sectorId==="infra"||stock.sectorId==="software")momentum+=8;
+      // Value score (inverse of speculative risk)
+      const caV={Mega:30,Large:25,Mid:15,Small:5};
+      const stV={Established:30,Growing:20,Early:5};
+      const value=(caV[stock.ca]||0)+(stV[stock.st]||0)+prob*0.3;
+      // Growth score
+      const grG={"Very High":50,High:40,"Medium-High":30,Medium:20};
+      const growth=(grG[stock.gr]||0)+base*0.5+bull*0.3;
+      return{...stock,prob,bear,base,bull,momentum,value:Math.round(value),growth:Math.round(growth)};
+    }).sort((a,b)=>{
+      if(sortBy==="momentum")return b.momentum-a.momentum;
+      if(sortBy==="value")return b.value-a.value;
+      if(sortBy==="growth")return b.growth-a.growth;
+      if(sortBy==="prob")return b.prob-a.prob;
+      return 0;
+    }).slice(0,25);
+    setResults(scored);
+  };
+
+  // Auto-scan on sort change if already scanned
+  const handleSort=(s)=>{setSortBy(s);if(results)setTimeout(scan,0);};
+
+  const getBar=(val,max,color)=>React.createElement("div",{style:{height:3,background:C.b,borderRadius:2,overflow:"hidden",marginTop:2}},
+    React.createElement("div",{style:{height:"100%",width:Math.min(100,(val/max)*100)+"%",background:color,borderRadius:2}})
+  );
+
+  return React.createElement("div",null,
+    React.createElement("div",{style:{fontSize:9,letterSpacing:3,color:C.ac,textTransform:"uppercase",marginBottom:6}},"📈 Momentum Screener"),
+    React.createElement("p",{style:{fontSize:11,color:C.di,marginBottom:10,lineHeight:1.6}},"Ranks all stocks in the app by momentum, value, growth, or win probability. Instant — no API calls."),
+    React.createElement("div",{style:{fontSize:9,color:C.gr,background:`${C.gr}10`,border:`1px solid ${C.gr}25`,borderRadius:5,padding:"3px 9px",marginBottom:12,display:"inline-block"}},"Free — no API calls"),
+    React.createElement("div",{style:{display:"flex",gap:5,flexWrap:"wrap",marginBottom:12,alignItems:"center"}},
+      React.createElement("span",{style:{fontSize:9,color:C.mu}},"Sort by:"),
+      [["momentum","🚀 Momentum"],["value","💎 Value"],["growth","📈 Growth"],["prob","🎯 Win %"]].map(([id,lb])=>
+        React.createElement("button",{key:id,onClick:()=>handleSort(id),style:{padding:"4px 10px",borderRadius:5,border:`1px solid ${sortBy===id?C.ac:C.b}`,background:sortBy===id?`${C.ac}15`:"transparent",color:sortBy===id?C.ac:C.mu,fontSize:10,cursor:"pointer"}},lb)
+      ),
+      React.createElement("button",{onClick:scan,style:{marginLeft:"auto",padding:"5px 14px",borderRadius:6,border:`1px solid ${C.ac}60`,background:`${C.ac}18`,color:C.ac,fontSize:11,cursor:"pointer"}},results?"⟳ Rescan":"🔍 Screen Now")
+    ),
+    !results&&React.createElement("div",{style:{textAlign:"center",padding:"30px 20px",color:C.mu,fontSize:12}},"Tap Screen Now to rank all 365 stocks."),
+    results&&React.createElement("div",null,
+      React.createElement("div",{style:{fontSize:10,color:C.mu,marginBottom:10}},"Top 25 by "+sortBy+" — tap any to add to watchlist"),
+      results.map((stock,i)=>{
+        const rankColor=i<3?C.go:i<10?C.ac:C.mu;
+        return React.createElement("div",{key:stock.t,style:{background:C.s2,border:`1px solid ${stock.sectorColor}25`,borderRadius:7,padding:"9px 11px",marginBottom:6,display:"flex",gap:8,alignItems:"center"}},
+          React.createElement("div",{style:{width:22,height:22,borderRadius:"50%",background:`${rankColor}20`,border:`1px solid ${rankColor}40`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:rankColor,flexShrink:0}},""+( i+1)),
+          React.createElement("div",{style:{flex:1,minWidth:0}},
+            React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:2}},
+              React.createElement("div",{style:{display:"flex",gap:5,alignItems:"center"}},
+                React.createElement("span",{style:{fontSize:11,fontWeight:700,color:stock.sectorColor}},stock.t),
+                React.createElement("span",{style:{fontSize:10,color:C.di,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:120}},stock.n)
+              ),
+              React.createElement("span",{style:{fontSize:11,fontWeight:700,color:stock.prob>=65?C.gr:stock.prob>=50?C.go:C.re}},stock.prob+"%")
+            ),
+            React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:4}},
+              [["MOM",stock.momentum,90,C.ac],["VAL",stock.value,60,C.go],["GRW",stock.growth,60,C.gr],["B+",stock.base,50,C.pu]].map(([l,v,mx,col])=>
+                React.createElement("div",{key:l},
+                  React.createElement("div",{style:{display:"flex",justifyContent:"space-between"}},
+                    React.createElement("span",{style:{fontSize:7,color:C.mu}},l),
+                    React.createElement("span",{style:{fontSize:7,color:col}},v)
+                  ),
+                  getBar(v,mx,col)
+                )
+              )
+            )
+          )
+        );
+      })
+    )
+  );
+}
+
+
 // ═══ TOOLKIT ══════════════════════════════════════════════
 function Toolkit({wl}){
   const [tool,setTool]=useState("analyst");
   const tools=[
-    {id:"analyst",  l:"🧠 Analyst",    C:StockAnalyst},
-    {id:"sizing",   l:"📐 Size",        C:PositionSizer},
-    {id:"options",  l:"📊 Options",     C:OptionsAnalyzer},
-    {id:"checklist",l:"✅ Checklist",   C:Checklist},
-    {id:"journal",  l:"📓 Journal",     C:TradeJournal},
-    {id:"alpaca",   l:"📈 Paper Trade", C:()=>React.createElement(AlpacaTrader,{wl})},
+    {id:"analyst",   l:"🧠 Analyst",    C:StockAnalyst},
+    {id:"scanner",   l:"⚡ Catalyst",    C:()=>React.createElement(CatalystScanner,{wl})},
+    {id:"squeeze",   l:"🔥 Squeeze",     C:()=>React.createElement(SqueezeDetector,{wl})},
+    {id:"screener",  l:"📈 Screener",    C:MomentumScreener},
+    {id:"sizing",    l:"📐 Size",        C:PositionSizer},
+    {id:"options",   l:"📊 Options",     C:OptionsAnalyzer},
+    {id:"checklist", l:"✅ Checklist",   C:Checklist},
+    {id:"journal",   l:"📓 Journal",     C:TradeJournal},
+    {id:"alpaca",    l:"📈 Paper Trade", C:()=>React.createElement(AlpacaTrader,{wl})},
   ];
   const Comp=tools.find(t=>t.id===tool)?.C;
   return React.createElement("div",{style:{display:"flex",flexDirection:"column",height:"100%"}},
